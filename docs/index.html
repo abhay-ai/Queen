@@ -386,17 +386,42 @@
       100% { opacity: 0.6; }
     }
 
+    .fen-container {
+      position: relative;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      margin-top: 0.5rem;
+    }
     .fen-display {
       font-family: var(--font-mono);
       font-size: 0.8rem;
       background: rgba(10, 12, 18, 0.6);
-      padding: 0.6rem 0.8rem;
+      padding: 0.6rem 4.5rem 0.6rem 0.8rem;
       border-radius: 6px;
       border: 1px solid var(--panel-border);
       width: 100%;
-      text-align: center;
+      text-align: left;
       overflow-x: auto;
       white-space: nowrap;
+    }
+    .fen-copy-btn {
+      position: absolute;
+      right: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      color: var(--text-muted);
+      padding: 0.35rem 0.7rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      z-index: 5;
+    }
+    .fen-copy-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-highlight);
     }
 
     /* Tabbed interface for Code Examples */
@@ -535,6 +560,23 @@
     .mb-6 {
       margin-bottom: 1.5rem;
     }
+    .playground-hint {
+      font-size: 0.85rem;
+      color: var(--gold);
+      margin-top: 0.5rem;
+      margin-bottom: 0;
+      line-height: 1.4;
+    }
+    .mcp-explainer {
+      font-size: 0.85rem;
+      background: rgba(0, 220, 255, 0.04);
+      border: 1px solid rgba(0, 220, 255, 0.15);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.2rem;
+      color: var(--text);
+      line-height: 1.4;
+    }
 
     /* Responsive */
     @media (max-width: 1000px) {
@@ -615,14 +657,14 @@
     <section id="overview">
       <h2>Overview</h2>
       <div class="glass-card">
-        <p>
-          <strong>Queen</strong> is a high-fidelity hybrid chess validation and tactical analysis system. It is designed to bridge the gap between logical, declarative engines and modern conversational AI agents.
+        <p style="font-size: 1.2rem; color: var(--text-highlight); line-height: 1.6; margin-bottom: 1.5rem; font-weight: 600; background: linear-gradient(135deg, #fff 60%, var(--cyan) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+          Queen gives LLMs a perfect understanding of chess rules and deep tactical reasoning. While traditional chess engines only output computer moves, Queen uses symbolic logic to let AI agents understand why a move is illegal, detect pins or forks, and converse about chess tactics with human-like explanation.
         </p>
         <p>
           Unlike pure heuristics-based engines, Queen implements chess rules as a set of logical symbolic constraints in <strong>SWI-Prolog</strong>. This allows the system to not only validate moves but also output <strong>natural diagnostics and explanations</strong> for rule violations (e.g. explaining exactly why a piece cannot move because it is pinned to the king).
         </p>
         <p>
-          These constraints are packaged into a Python layer using a seamless bridge, which is then exposed as a **Model Context Protocol (MCP) Server**. This enables LLMs like Claude or Gemini to query board positions, retrieve tactical details, and obtain rules explanations during chess play.
+          These constraints are packaged into a Python layer using a seamless bridge, which is then exposed as a <strong>Model Context Protocol (MCP) Server</strong>. This enables LLMs like Claude or Gemini to query board positions, retrieve tactical details, and obtain rules explanations during chess play.
         </p>
       </div>
     </section>
@@ -678,11 +720,15 @@
                 <option value="middlegame_tactic">Middlegame Tactical Summary (Complex Analysis)</option>
               </optgroup>
             </select>
+            <p class="playground-hint">👉 Click the dropdown to swap scenarios and watch the live data payload change across the stack.</p>
           </div>
           
           <div id="chessboard" class="chessboard"></div>
           
-          <div id="fen-display" class="fen-display"></div>
+          <div class="fen-container">
+            <div id="fen-display" class="fen-display"></div>
+            <button class="fen-copy-btn" onclick="copyFen()">Copy FEN</button>
+          </div>
         </div>
 
         <!-- Right Side: Code Tabs -->
@@ -708,6 +754,9 @@
           
           <!-- MCP Code Tab -->
           <div id="mcp-code" class="tab-content" role="tabpanel" aria-labelledby="tab-mcp">
+            <div class="mcp-explainer">
+              💡 <strong>MCP Layer:</strong> This tab shows the exact JSON-RPC request and response payloads automatically exchanged between the AI assistant host (like Claude Desktop) and the Queen engine.
+            </div>
             <button class="copy-btn" onclick="copyCode('mcp-pre')">Copy</button>
             <pre id="mcp-pre"></pre>
           </div>
@@ -1407,6 +1456,21 @@ print("Discovered Attacks:", summary['discovered_attacks'])
       const pre = document.getElementById(preId);
       navigator.clipboard.writeText(pre.textContent).then(() => {
         const btn = pre.previousElementSibling;
+        const originalText = btn.textContent;
+        btn.textContent = "Copied!";
+        btn.style.color = "var(--cyan)";
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.color = "var(--text-muted)";
+        }, 1500);
+      });
+    }
+
+    // Copy FEN helper
+    function copyFen() {
+      const fenText = document.getElementById('fen-display').textContent;
+      navigator.clipboard.writeText(fenText).then(() => {
+        const btn = document.querySelector('.fen-copy-btn');
         const originalText = btn.textContent;
         btn.textContent = "Copied!";
         btn.style.color = "var(--cyan)";
