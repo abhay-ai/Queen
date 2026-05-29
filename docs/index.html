@@ -75,11 +75,11 @@
       color: var(--text-highlight);
       font-family: var(--font-sans);
     }
-    .brand span {
-      font-size: 1.8rem;
+    .brand svg {
+      width: 1.8rem;
+      height: 1.8rem;
       color: var(--accent);
-      display: flex;
-      align-items: center;
+      flex-shrink: 0;
     }
 
     .nav-links {
@@ -557,7 +557,9 @@
   <!-- Navigation Sidebar -->
   <aside>
     <div class="brand">
-      <span aria-hidden="true">♛</span>
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm1 14h16v2H3z" />
+      </svg>
       <h1>Queen</h1>
     </div>
     <ul class="nav-links">
