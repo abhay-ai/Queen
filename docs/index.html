@@ -873,34 +873,32 @@
         </div>
 
         <h3 class="setup-step">3. Python Library Integration</h3>
-        <p>You can import Queen's logical constraints directly in your Python applications in two ways:</p>
+        <p>Queen can be installed directly into your Python environment as a package, which automatically bundles and configures the Prolog symbolic engine:</p>
         
-        <h4 style="color: var(--text-highlight); margin: 1rem 0 0.5rem; font-size: 1.05rem;">Option A: Direct Import (No Installation)</h4>
-        <p>Simply copy <code>queen.py</code> and <code>queen.pl</code> directly into your project directory, then import it immediately:</p>
-        <div class="code-tabs compact mb-6">
-          <div class="tab-content active">
-            <pre><span class="keyword">import</span> queen
-
-<span class="comment"># Validate a move and get symbolic constraint explanations</span>
-is_legal, explanation = queen.check_move_diagnostics(
-    <span class="string">"r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4"</span>,
-    <span class="string">"e8f7"</span>
-)
-<span class="builtin">print</span>(is_legal, explanation)</pre>
-          </div>
-        </div>
-
-        <h4 style="color: var(--text-highlight); margin: 1rem 0 0.5rem; font-size: 1.05rem;">Option B: Install as a Pip Package</h4>
-        <p>You can also install Queen as a package using pip, which automatically bundles the Prolog rules engine:</p>
         <div class="code-tabs compact mb-6">
           <div class="tab-content active">
             <pre><span class="builtin">pip install</span> queen-chess</pre>
           </div>
         </div>
+
         <p>Or install the local repository in editable development mode:</p>
-        <div class="code-tabs compact">
+        <div class="code-tabs compact mb-6">
           <div class="tab-content active">
             <pre><span class="builtin">pip install -e</span> .</pre>
+          </div>
+        </div>
+
+        <p>Once installed, you can import the library and query tactical constraints from any Python script:</p>
+        <div class="code-tabs compact">
+          <div class="tab-content active">
+            <pre><span class="keyword">import</span> queen
+
+<span class="comment"># Validate a move and get constraint-based rule explanations</span>
+is_legal, explanation = queen.check_move_diagnostics(
+    <span class="string">"r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4"</span>,
+    <span class="string">"e8f7"</span>
+)
+<span class="builtin">print</span>(f<span class="string">"Legal: {is_legal}, Explanation: {explanation}"</span>)</pre>
           </div>
         </div>
       </div>
