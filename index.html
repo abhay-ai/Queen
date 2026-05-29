@@ -775,7 +775,7 @@
     const presets = {
       scholars: {
         name: "Scholar's Mate (Checkmate)",
-        fen: "r1bqkb1r/pppp1Qpp/2n2n2/4p3/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 0 4",
+        fen: "r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4",
         highlights: {
           check: ['e8'],
           attack: ['f7']
@@ -793,7 +793,7 @@ State = state([
 % Output: true.`,
         python: `import queen
 
-fen = "r1bqkb1r/pppp1Qpp/2n2n2/4p3/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 0 4"
+fen = "r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4"
 
 # Query the status of the board position
 status = queen.get_game_status(fen)
@@ -810,7 +810,7 @@ print(f"In check: {summary['in_check']}")
   "params": {
     "name": "get_game_status",
     "arguments": {
-      "fen": "r1bqkb1r/pppp1Qpp/2n2n2/4p3/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 0 4"
+      "fen": "r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4"
     }
   },
   "id": 1
@@ -818,26 +818,26 @@ print(f"In check: {summary['in_check']}")
       },
       fork: {
         name: "Knight Fork (Double Attack)",
-        fen: "r3k3/8/2N5/8/1q6/8/8/4K3 b - - 0 1",
+        fen: "8/2k5/8/3N4/1q6/8/8/6K1 b - - 0 1",
         highlights: {
-          check: ['e8'],
-          attack: ['c6', 'b4']
+          check: ['c7'],
+          attack: ['d5', 'b4']
         },
         prolog: `% Query active fork relationships
-?- is_fork(Board, white, 3-6, 5-8, 2-4).
-% Output: true (Knight on c6 forks Black King on e8 and Black Queen on b4)
+?- is_fork(Board, white, 4-5, 3-7, 2-4).
+% Output: true (Knight on d5 (4-5) forks Black King on c7 (3-7) and Black Queen on b4 (2-4))
 
 % Query move diagnostics: King is checked by Knight
 ?- validate_and_explain(State, 2-4, 5-4, Explanation).
 % Output: Explanation = "Active player King is in check: must move King or capture checker."`,
         python: `import queen
 
-fen = "r3k3/8/2N5/8/1q6/8/8/4K3 b - - 0 1"
+fen = "8/2k5/8/3N4/1q6/8/8/6K1 b - - 0 1"
 
 # Query active forks and candidates
 forks = queen.get_forks(fen)
 print(forks['existing'])
-# Output: [{'forker': 'c6', 'targets': ['e8', 'b4']}]
+# Output: [{'forker': 'd5', 'targets': ['c7', 'b4']}]
 
 # Attempting an illegal move while in check
 legal, reason = queen.check_move_diagnostics(fen, "b4e4")
@@ -849,7 +849,7 @@ print(f"Legal: {legal}, Explanation: {reason}")
   "params": {
     "name": "get_forks",
     "arguments": {
-      "fen": "r3k3/8/2N5/8/1q6/8/8/4K3 b - - 0 1"
+      "fen": "8/2k5/8/3N4/1q6/8/8/6K1 b - - 0 1"
     }
   },
   "id": 2
