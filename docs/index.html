@@ -29,6 +29,8 @@
       
       --board-light: hsl(220, 15%, 80%);
       --board-dark: hsl(220, 20%, 40%);
+      --square-size: 48px;
+      --piece-size: 2.2rem;
       
       --font-sans: 'Outfit', system-ui, sans-serif;
       --font-mono: 'Fira Code', monospace;
@@ -94,7 +96,7 @@
     }
     .brand h1 {
       font-size: 1.8rem;
-      font-weight: 800;
+      font-weight: 700;
       letter-spacing: -0.05rem;
       color: var(--text-highlight);
       background: linear-gradient(135deg, #fff 40%, var(--accent) 100%);
@@ -144,7 +146,7 @@
 
     h2 {
       font-size: 2.2rem;
-      font-weight: 800;
+      font-weight: 700;
       color: var(--text-highlight);
       margin-bottom: 1.5rem;
       letter-spacing: -0.03rem;
@@ -279,16 +281,16 @@
     }
     .chessboard {
       display: grid;
-      grid-template-columns: repeat(8, 48px);
-      grid-template-rows: repeat(8, 48px);
+      grid-template-columns: repeat(8, var(--square-size));
+      grid-template-rows: repeat(8, var(--square-size));
       border: 6px solid rgba(15, 18, 25, 0.9);
       border-radius: 8px;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
       position: relative;
     }
     .square {
-      width: 48px;
-      height: 48px;
+      width: var(--square-size);
+      height: var(--square-size);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -304,7 +306,7 @@
     }
     
     .piece {
-      font-size: 2.2rem;
+      font-size: var(--piece-size);
       line-height: 1;
       cursor: default;
       z-index: 2;
@@ -329,7 +331,7 @@
       top: 2px;
       left: 3px;
       font-size: 0.65rem;
-      font-weight: 800;
+      font-weight: 700;
       opacity: 0.5;
       z-index: 1;
     }
@@ -341,7 +343,7 @@
       bottom: 2px;
       right: 3px;
       font-size: 0.65rem;
-      font-weight: 800;
+      font-weight: 700;
       opacity: 0.5;
       z-index: 1;
     }
@@ -513,6 +515,27 @@
       border-radius: 4px;
     }
 
+    /* Helper Classes */
+    .glass-card.flush {
+      padding: 0;
+      overflow-x: auto;
+    }
+    .setup-step {
+      color: var(--text-highlight);
+      margin: 1.5rem 0 0.75rem;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+    .code-tabs.compact {
+      min-height: auto;
+    }
+    .code-tabs.compact .tab-content {
+      padding: 1rem;
+    }
+    .mb-6 {
+      margin-bottom: 1.5rem;
+    }
+
     /* Responsive */
     @media (max-width: 1000px) {
       body {
@@ -544,6 +567,25 @@
         margin-bottom: 1.5rem;
       }
     }
+
+    @media (max-width: 600px) {
+      :root {
+        --square-size: 38px;
+        --piece-size: 1.8rem;
+      }
+      aside {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+      .nav-links {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      main {
+        padding: 1.5rem 1rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -554,7 +596,7 @@
   <!-- Navigation Sidebar -->
   <aside>
     <div class="brand">
-      <span>👑</span>
+      <span aria-hidden="true">👑</span>
       <h1>Queen</h1>
     </div>
     <ul class="nav-links">
@@ -645,33 +687,33 @@
 
         <!-- Right Side: Code Tabs -->
         <div class="code-tabs">
-          <div class="tab-header">
-            <button class="tab-btn active" onclick="switchTab(event, 'prolog-code')">Prolog Query</button>
-            <button class="tab-btn" onclick="switchTab(event, 'python-code')">Python Bridge</button>
-            <button class="tab-btn" onclick="switchTab(event, 'mcp-code')">MCP Tool Invocation</button>
-            <button class="tab-btn" onclick="switchTab(event, 'summary-code')">Tactical Summary</button>
+          <div class="tab-header" role="tablist" aria-label="Code Examples">
+            <button id="tab-prolog" class="tab-btn active" role="tab" aria-selected="true" aria-controls="prolog-code" onclick="switchTab(event, 'prolog-code')">Prolog Query</button>
+            <button id="tab-python" class="tab-btn" role="tab" aria-selected="false" aria-controls="python-code" onclick="switchTab(event, 'python-code')">Python Bridge</button>
+            <button id="tab-mcp" class="tab-btn" role="tab" aria-selected="false" aria-controls="mcp-code" onclick="switchTab(event, 'mcp-code')">MCP Tool Invocation</button>
+            <button id="tab-summary" class="tab-btn" role="tab" aria-selected="false" aria-controls="summary-code" onclick="switchTab(event, 'summary-code')">Tactical Summary</button>
           </div>
           
           <!-- Prolog Code Tab -->
-          <div id="prolog-code" class="tab-content active">
+          <div id="prolog-code" class="tab-content active" role="tabpanel" aria-labelledby="tab-prolog">
             <button class="copy-btn" onclick="copyCode('prolog-pre')">Copy</button>
             <pre id="prolog-pre"></pre>
           </div>
           
           <!-- Python Code Tab -->
-          <div id="python-code" class="tab-content">
+          <div id="python-code" class="tab-content" role="tabpanel" aria-labelledby="tab-python">
             <button class="copy-btn" onclick="copyCode('python-pre')">Copy</button>
             <pre id="python-pre"></pre>
           </div>
           
           <!-- MCP Code Tab -->
-          <div id="mcp-code" class="tab-content">
+          <div id="mcp-code" class="tab-content" role="tabpanel" aria-labelledby="tab-mcp">
             <button class="copy-btn" onclick="copyCode('mcp-pre')">Copy</button>
             <pre id="mcp-pre"></pre>
           </div>
           
           <!-- Tactical Summary Tab -->
-          <div id="summary-code" class="tab-content">
+          <div id="summary-code" class="tab-content" role="tabpanel" aria-labelledby="tab-summary">
             <button class="copy-btn" onclick="copyCode('summary-pre')">Copy</button>
             <pre id="summary-pre"></pre>
           </div>
@@ -685,7 +727,7 @@
       <h2>API & Tool Reference</h2>
       <p>The Queen MCP server exposes these analytical tools to clients. Under the hood, they map directly to functions inside <code>queen.py</code>.</p>
       
-      <div class="glass-card" style="padding: 0; overflow-x: auto;">
+      <div class="glass-card flush">
         <table>
           <thead>
             <tr>
@@ -755,19 +797,19 @@
       <div class="glass-card">
         <p>Follow these steps to integrate the Queen MCP server with your environment:</p>
         
-        <h3 style="color: var(--text-highlight); margin: 1.5rem 0 0.75rem; font-size: 1.2rem;">1. Install Dependencies</h3>
+        <h3 class="setup-step">1. Install Dependencies</h3>
         <p>Ensure you have SWI-Prolog installed on your system. On Debian/Ubuntu:</p>
-        <div class="code-tabs" style="min-height: auto; margin-bottom: 1.5rem;">
-          <div class="tab-content active" style="padding: 1rem;">
+        <div class="code-tabs compact mb-6">
+          <div class="tab-content active">
             <pre><span class="builtin">sudo apt-get install</span> swi-prolog
 <span class="builtin">pip install</span> pyswip python-chess mcp</pre>
           </div>
         </div>
 
-        <h3 style="color: var(--text-highlight); margin: 1.5rem 0 0.75rem; font-size: 1.2rem;">2. Configure MCP Client</h3>
+        <h3 class="setup-step">2. Configure MCP Client</h3>
         <p>To use Queen with the Claude Desktop client, add the server configuration inside your <code>claude_desktop_config.json</code> file:</p>
-        <div class="code-tabs" style="min-height: auto;">
-          <div class="tab-content active" style="padding: 1rem;">
+        <div class="code-tabs compact">
+          <div class="tab-content active">
             <pre>{
   <span class="keyword">"mcpServers"</span>: {
     <span class="keyword">"queen"</span>: {
@@ -1348,11 +1390,15 @@ print("Discovered Attacks:", summary['discovered_attacks'])
       const container = evt.currentTarget.closest('.code-tabs');
       
       // Deactivate other tabs
-      container.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      container.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-selected', 'false');
+      });
       container.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
       
       // Activate this tab
       evt.currentTarget.classList.add('active');
+      evt.currentTarget.setAttribute('aria-selected', 'true');
       container.querySelector('#' + tabId).classList.add('active');
     }
 
@@ -1376,11 +1422,12 @@ print("Discovered Attacks:", summary['discovered_attacks'])
     const navLinks = document.querySelectorAll('.nav-links a');
     
     window.addEventListener('scroll', () => {
-      let current = '';
+      let current = sections[0] ? sections[0].getAttribute('id') : '';
+      const scrollPos = window.scrollY || document.documentElement.scrollTop;
+      
       sections.forEach(section => {
         const sectionTop = section.offsetTop;
-        const sectionHeight = section.clientHeight;
-        if (pageYOffset >= (sectionTop - 120)) {
+        if (scrollPos >= (sectionTop - 140)) {
           current = section.getAttribute('id');
         }
       });
