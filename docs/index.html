@@ -868,7 +868,8 @@
           </div>
         </div>
 
-        <h3 class="setup-step">2. Configure MCP Client</h3>
+        <h3 class="setup-step">2. Configure MCP Client (Optional)</h3>
+        <p style="font-style: italic; color: var(--text-muted); margin-bottom: 0.75rem;">Required only for integrating Queen as an MCP tool server for AI assistants like Claude Desktop. Skip this step if you only want to import Queen as a Python package.</p>
         <p>To use Queen with the Claude Desktop client, add the server configuration inside your <code>claude_desktop_config.json</code> file:</p>
         <div class="code-tabs compact mb-6">
           <div class="tab-content active">
@@ -885,7 +886,8 @@
           </div>
         </div>
 
-        <h3 class="setup-step">3. Python Library Integration</h3>
+        <h3 class="setup-step">3. Python Library Integration (Optional)</h3>
+        <p style="font-style: italic; color: var(--text-muted); margin-bottom: 0.75rem;">Required only if you want to import <code>queen</code> directly into a Python application. Skip this step if you are only using Queen via the MCP server interface.</p>
         <p>Queen can be installed directly into your Python environment as a package, which automatically bundles and configures the Prolog symbolic engine:</p>
         
         <div class="code-tabs compact mb-6">
