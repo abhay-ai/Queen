@@ -623,10 +623,17 @@
           <div class="preset-selector">
             <label for="scenario-select">Tactical Scenario</label>
             <select id="scenario-select" onchange="loadPreset(this.value)">
-              <option value="scholars">Scholar's Mate (Checkmate)</option>
-              <option value="fork">Knight Fork (Double Attack)</option>
-              <option value="pin">Bishop Pin (Relative Pin)</option>
-              <option value="smothered">Smothered Mate (Mated by Knight)</option>
+              <optgroup label="Basic Tactical Scenarios">
+                <option value="scholars">Scholar's Mate (Checkmate)</option>
+                <option value="fork">Knight Fork (Double Attack)</option>
+                <option value="pin">Bishop Pin (Relative Pin)</option>
+                <option value="smothered">Smothered Mate (Mated by Knight)</option>
+              </optgroup>
+              <optgroup label="Advanced Prolog Constraints & Explanations">
+                <option value="mate2">Forced Mate-in-Two (Symbolic Search)</option>
+                <option value="evasion">Illegal Check Evasion (Metarational Explanation)</option>
+                <option value="passed">Passed Pawn Progress (Dynamic Valuation)</option>
+              </optgroup>
             </select>
           </div>
           
@@ -929,6 +936,123 @@ print(moves)
     }
   },
   "id": 4
+}`
+      },
+      mate2: {
+        name: "Forced Mate-in-Two (Symbolic Search)",
+        fen: "r5rk/5p1p/5R2/4Q3/8/8/8/6RK w - - 0 1",
+        highlights: {
+          attack: ['f6', 'e5'],
+          check: ['h8']
+        },
+        prolog: `% Assert board state
+State = state([
+  piece(black, king, 8-8),
+  piece(white, rook, 6-6),
+  piece(white, queen, 5-5),
+  piece(black, pawn, 6-7),
+  piece(black, pawn, 8-7),
+  piece(black, rook, 7-8),
+  piece(white, rook, 7-1),
+  piece(white, king, 7-1)
+], white, [], none).
+
+% Query if moving Rook from f6 (6-6) to f7 (6-7) is a forced mate-in-two
+?- mate_in_two(State, 6-6, 6-7).
+% Output: true. (Prolog recursively searches all response branches)`,
+        python: `import queen
+
+fen = "r5rk/5p1p/5R2/4Q3/8/8/8/6RK w - - 0 1"
+
+# Query if White has a forced mate in 2 starting with Rf6-f7
+# queen.py wraps the mate_in_two Prolog predicate
+state_vars = queen.parse_fen_to_prolog_vars(fen)
+# (Querying Prolog for mate_in_two)
+query = f"mate_in_two(state({state_vars[0]}, white, [], none), 6-6, 6-7)"
+is_mate_in_two = bool(list(queen.prolog.query(query)))
+print(f"Mate in 2 available with Rf7: {is_mate_in_two}")
+# Output: Mate in 2 available with Rf7: True`,
+        mcp: `{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "get_tactical_summary",
+    "arguments": {
+      "fen": "r5rk/5p1p/5R2/4Q3/8/8/8/6RK w - - 0 1"
+    }
+  },
+  "id": 5
+}`
+      },
+      evasion: {
+        name: "Illegal Check Evasion (Metarational Explanation)",
+        fen: "rnbqkbnr/ppppp1pp/8/5p1Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2",
+        highlights: {
+          check: ['e8'],
+          attack: ['h5']
+        },
+        prolog: `% Black is in check from White Queen on h5 (8-5)
+% Black attempts to move Pawn from a7 (1-7) to a6 (1-6)
+?- validate_and_explain(State, 1-7, 1-6, Explanation).
+% Output:
+% Explanation = "CRITICAL FAILURE: Your King is currently in CHECK! The path 1-7 to 1-6 is illegal because it fails to protect or move your King out of danger."`,
+        python: `import queen
+
+fen = "rnbqkbnr/ppppp1pp/8/5p1Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2"
+
+# Black tries to play a7a6 (1-7 to 1-6) instead of resolving the check
+legal, explanation = queen.check_move_diagnostics(fen, "a7a6")
+print(f"Legal: {legal}")
+print(f"Reason: {explanation}")
+# Output:
+# Legal: False
+# Reason: CRITICAL FAILURE: Your King is currently in CHECK! The path 1-7 to 1-6 is illegal because it fails to protect or move your King out of danger.`,
+        mcp: `{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "validate_move",
+    "arguments": {
+      "fen": "rnbqkbnr/ppppp1pp/8/5p1Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2",
+      "move_uci": "a7a6"
+    }
+  },
+  "id": 6
+}`
+      },
+      passed: {
+        name: "Passed Pawn Progress (Dynamic Valuation)",
+        fen: "8/8/P7/8/k7/8/8/6K1 w - - 0 1",
+        highlights: {
+          attack: ['a6']
+        },
+        prolog: `% Query if White Pawn on a6 (1-6) is a passed pawn
+?- is_passed_pawn(Board, white, 1-6).
+% Output: true.
+
+% Query dynamic material value of the pawn (includes advanced progress bonus)
+?- dynamic_piece_value(Board, white, pawn, 1-6, Value).
+% Output: Value = 160. (Base value 100 + 60 Rank Progress Bonus)`,
+        python: `import queen
+
+fen = "8/8/P7/8/k7/8/8/6K1 w - - 0 1"
+
+# Query dynamic material status
+status = queen.get_material_status(fen)
+print(status['dynamic_material_values'])
+# Output: {'white': 1.6, 'black': 0.0}
+# Note: The single White Pawn on a6 is valued dynamically at 1.6 (instead of 1.0)
+# because the Prolog constraint rules recognize it as an advanced passed pawn!`,
+        mcp: `{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "get_tactical_summary",
+    "arguments": {
+      "fen": "8/8/P7/8/k7/8/8/6K1 w - - 0 1"
+    }
+  },
+  "id": 7
 }`
       }
     };
