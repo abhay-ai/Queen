@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Queen 👑 | Prolog-Powered Chess Referee Documentation</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg: radial-gradient(circle at 50% 50%, hsl(220, 25%, 10%), hsl(220, 35%, 4%));
+      --panel-bg: rgba(255, 255, 255, 0.03);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --text: hsl(220, 15%, 85%);
+      --text-muted: hsl(220, 10%, 60%);
+      --text-highlight: hsl(0, 0%, 100%);
+      
+      --accent: hsl(265, 85%, 65%);
+      --accent-glow: hsla(265, 85%, 65%, 0.3);
+      --cyan: hsl(190, 90%, 50%);
+      --cyan-glow: hsla(190, 90%, 50%, 0.3);
+      --red: hsl(0, 85%, 60%);
+      --red-glow: hsla(0, 85%, 60%, 0.3);
+      --gold: hsl(45, 90%, 55%);
+      --gold-glow: hsla(45, 90%, 55%, 0.3);
+      
+      --board-light: hsl(220, 15%, 80%);
+      --board-dark: hsl(220, 20%, 40%);
+      
+      --font-sans: 'Outfit', system-ui, sans-serif;
+      --font-mono: 'Fira Code', monospace;
+      
+      --sidebar-width: 280px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background glows */
+    .glow-orb {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      background: var(--accent);
+      filter: blur(150px);
+      opacity: 0.15;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .glow-orb-1 { top: 10%; left: -100px; }
+    .glow-orb-2 { bottom: 10%; right: -100px; background: var(--cyan); }
+
+    /* Navigation Sidebar */
+    aside {
+      width: var(--sidebar-width);
+      background: rgba(10, 12, 18, 0.7);
+      border-right: 1px solid var(--panel-border);
+      backdrop-filter: blur(20px);
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      padding: 2.5rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .brand h1 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      letter-spacing: -0.05rem;
+      color: var(--text-highlight);
+      background: linear-gradient(135deg, #fff 40%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .brand span {
+      font-size: 1.8rem;
+    }
+
+    .nav-links {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      display: block;
+      transition: all 0.3s ease;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--text-highlight);
+      background: var(--panel-bg);
+      border-left: 3px solid var(--accent);
+      padding-left: calc(1rem - 3px);
+    }
+
+    /* Main Content Area */
+    main {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      padding: 3rem 4rem;
+      max-width: 1200px;
+      position: relative;
+      z-index: 1;
+    }
+
+    section {
+      margin-bottom: 5rem;
+    }
+
+    h2 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--text-highlight);
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.03rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    h2::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--panel-border) 0%, transparent 100%);
+      margin-left: 1rem;
+    }
+
+    p {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      line-height: 1.7;
+      margin-bottom: 1.5rem;
+    }
+
+    strong {
+      color: var(--text-highlight);
+    }
+
+    /* Card / Glass Container */
+    .glass-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 2rem;
+      backdrop-filter: blur(16px);
+      margin-bottom: 2rem;
+      transition: border-color 0.3s ease;
+    }
+    .glass-card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Architecture Grid */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+    .arch-card {
+      padding: 2rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .arch-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--accent);
+    }
+    .arch-card.python::before { background: var(--cyan); }
+    .arch-card.mcp::before { background: var(--gold); }
+    
+    .arch-card h3 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text-highlight);
+      margin-bottom: 0.75rem;
+    }
+    .arch-card h4 {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+    .arch-card.python h4 { color: var(--cyan); }
+    .arch-card.mcp h4 { color: var(--gold); }
+    
+    .arch-card p {
+      font-size: 0.95rem;
+      margin-bottom: 0;
+    }
+
+    /* Playground Styles */
+    .playground-container {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 2.5rem;
+      align-items: start;
+    }
+
+    .preset-selector {
+      margin-bottom: 1.5rem;
+      width: 100%;
+    }
+    .preset-selector label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+    .preset-selector select {
+      width: 100%;
+      background: rgba(15, 18, 25, 0.8);
+      border: 1px solid var(--panel-border);
+      color: var(--text-highlight);
+      font-family: var(--font-sans);
+      font-size: 1.05rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.3s ease;
+    }
+    .preset-selector select:focus {
+      border-color: var(--accent);
+    }
+
+    /* Interactive Chessboard */
+    .chessboard-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+    .chessboard {
+      display: grid;
+      grid-template-columns: repeat(8, 48px);
+      grid-template-rows: repeat(8, 48px);
+      border: 6px solid rgba(15, 18, 25, 0.9);
+      border-radius: 8px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      position: relative;
+    }
+    .square {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      user-select: none;
+      transition: all 0.25s ease;
+    }
+    .square.light {
+      background-color: var(--board-light);
+    }
+    .square.dark {
+      background-color: var(--board-dark);
+    }
+    
+    .piece {
+      font-size: 2.2rem;
+      line-height: 1;
+      cursor: default;
+      z-index: 2;
+      transition: transform 0.2s ease;
+    }
+    .piece.white-piece {
+      color: #fff;
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+    }
+    .piece.black-piece {
+      color: #15181f;
+      filter: drop-shadow(0 1px 2px rgba(255,255,255,0.15));
+    }
+    
+    .square:hover .piece {
+      transform: scale(1.15);
+    }
+
+    /* Chessboard coordinate labels */
+    .label-rank {
+      position: absolute;
+      top: 2px;
+      left: 3px;
+      font-size: 0.65rem;
+      font-weight: 800;
+      opacity: 0.5;
+      z-index: 1;
+    }
+    .square.light .label-rank { color: hsl(220, 20%, 30%); }
+    .square.dark .label-rank { color: hsl(220, 15%, 80%); }
+
+    .label-file {
+      position: absolute;
+      bottom: 2px;
+      right: 3px;
+      font-size: 0.65rem;
+      font-weight: 800;
+      opacity: 0.5;
+      z-index: 1;
+    }
+    .square.light .label-file { color: hsl(220, 20%, 30%); }
+    .square.dark .label-file { color: hsl(220, 15%, 80%); }
+
+    /* Visual highlights on chessboard */
+    .square.highlight-check::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 3px solid var(--red);
+      box-shadow: inset 0 0 12px var(--red-glow);
+      animation: pulse-red 1.5s infinite;
+      z-index: 3;
+      pointer-events: none;
+    }
+    .square.highlight-attack::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 3px solid var(--gold);
+      box-shadow: inset 0 0 12px var(--gold-glow);
+      z-index: 3;
+      pointer-events: none;
+    }
+    .square.highlight-pin::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 3px solid var(--cyan);
+      box-shadow: inset 0 0 12px var(--cyan-glow);
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    @keyframes pulse-red {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+
+    .fen-display {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      background: rgba(10, 12, 18, 0.6);
+      padding: 0.6rem 0.8rem;
+      border-radius: 6px;
+      border: 1px solid var(--panel-border);
+      width: 100%;
+      text-align: center;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    /* Tabbed interface for Code Examples */
+    .code-tabs {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      background: rgba(10, 12, 18, 0.4);
+      overflow: hidden;
+      min-height: 420px;
+    }
+    .tab-header {
+      display: flex;
+      background: rgba(10, 12, 18, 0.8);
+      border-bottom: 1px solid var(--panel-border);
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 1rem 1.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    .tab-btn:hover {
+      color: var(--text-highlight);
+    }
+    .tab-btn.active {
+      color: var(--accent);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+
+    .tab-content {
+      padding: 1.5rem;
+      flex: 1;
+      position: relative;
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Code Blocks */
+    pre {
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      line-height: 1.6;
+      color: hsl(220, 15%, 90%);
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+    .keyword { color: hsl(300, 80%, 70%); }
+    .string { color: hsl(95, 75%, 65%); }
+    .comment { color: var(--text-muted); }
+    .number { color: hsl(40, 95%, 65%); }
+    .builtin { color: var(--cyan); }
+
+    .copy-btn {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      padding: 0.4rem 0.8rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-highlight);
+    }
+
+    /* API Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1.5rem;
+    }
+    th, td {
+      padding: 1rem 1.25rem;
+      text-align: left;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--text-highlight);
+      background: rgba(255, 255, 255, 0.02);
+      text-transform: uppercase;
+      font-size: 0.85rem;
+      letter-spacing: 0.05rem;
+    }
+    td code {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--cyan);
+      background: rgba(0, 220, 255, 0.05);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1000px) {
+      body {
+        flex-direction: column;
+      }
+      aside {
+        width: 100%;
+        position: relative;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--panel-border);
+        padding: 1.5rem;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .nav-links {
+        flex-direction: row;
+        gap: 1rem;
+      }
+      main {
+        margin-left: 0;
+        padding: 2rem;
+      }
+      .playground-container {
+        grid-template-columns: 1fr;
+      }
+      .chessboard-wrapper {
+        margin-bottom: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  
+  <div class="glow-orb glow-orb-1"></div>
+  <div class="glow-orb glow-orb-2"></div>
+
+  <!-- Navigation Sidebar -->
+  <aside>
+    <div class="brand">
+      <span>👑</span>
+      <h1>Queen</h1>
+    </div>
+    <ul class="nav-links">
+      <li><a href="#overview" class="active">Overview</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#playground">Playground</a></li>
+      <li><a href="#api">API Reference</a></li>
+      <li><a href="#setup">Setup Guide</a></li>
+    </ul>
+  </aside>
+
+  <!-- Main Content -->
+  <main>
+    
+    <!-- Overview Section -->
+    <section id="overview">
+      <h2>Overview</h2>
+      <div class="glass-card">
+        <p>
+          <strong>Queen</strong> is a high-fidelity hybrid chess validation and tactical analysis system. It is designed to bridge the gap between logical, declarative engines and modern conversational AI agents.
+        </p>
+        <p>
+          Unlike pure heuristics-based engines, Queen implements chess rules as a set of logical symbolic constraints in <strong>SWI-Prolog</strong>. This allows the system to not only validate moves but also output <strong>natural diagnostics and explanations</strong> for rule violations (e.g. explaining exactly why a piece cannot move because it is pinned to the king).
+        </p>
+        <p>
+          These constraints are packaged into a Python layer using a seamless bridge, which is then exposed as a **Model Context Protocol (MCP) Server**. This enables LLMs like Claude or Gemini to query board positions, retrieve tactical details, and obtain rules explanations during chess play.
+        </p>
+      </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture">
+      <h2>System Architecture</h2>
+      <p>Queen's pipeline is cleanly divided into three distinct abstraction layers, each feeding structured insights to the next:</p>
+      
+      <div class="arch-grid">
+        <div class="arch-card prolog">
+          <h3>Constraint Logic Layer</h3>
+          <h4>queen.pl</h4>
+          <p>Written in SWI-Prolog. Represents the chessboard state as a set of facts and defines logical rules for move legality, path blockers, checks, mate conditions, pins, forks, and defenses.</p>
+        </div>
+        
+        <div class="arch-card python">
+          <h3>Orchestration Layer</h3>
+          <h4>queen.py</h4>
+          <p>Written in Python. Uses <code>pyswip</code> to load the Prolog rulebase, parses standard FEN strings into symbolic variables, executes queries, and returns structured Python data structures.</p>
+        </div>
+        
+        <div class="arch-card mcp">
+          <h3>Interface Layer</h3>
+          <h4>queen_mcp.py</h4>
+          <p>Exposes functions in the orchestration layer as tools using <code>FastMCP</code>. Facilitates stdio communication with LLM hosts, matching tool calls to JSON-RPC schemas.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Playground Section -->
+    <section id="playground">
+      <h2>Interactive Playground</h2>
+      <p>Select a preset tactical situation below to update the interactive chessboard and view the code outputs generated for each layer of the Queen stack:</p>
+      
+      <div class="glass-card playground-container">
+        
+        <!-- Left Side: Board and selector -->
+        <div class="chessboard-wrapper">
+          <div class="preset-selector">
+            <label for="scenario-select">Tactical Scenario</label>
+            <select id="scenario-select" onchange="loadPreset(this.value)">
+              <option value="scholars">Scholar's Mate (Checkmate)</option>
+              <option value="fork">Knight Fork (Double Attack)</option>
+              <option value="pin">Bishop Pin (Relative Pin)</option>
+              <option value="smothered">Smothered Mate (Mated by Knight)</option>
+            </select>
+          </div>
+          
+          <div id="chessboard" class="chessboard"></div>
+          
+          <div id="fen-display" class="fen-display"></div>
+        </div>
+
+        <!-- Right Side: Code Tabs -->
+        <div class="code-tabs">
+          <div class="tab-header">
+            <button class="tab-btn active" onclick="switchTab(event, 'prolog-code')">Prolog Query</button>
+            <button class="tab-btn" onclick="switchTab(event, 'python-code')">Python Bridge</button>
+            <button class="tab-btn" onclick="switchTab(event, 'mcp-code')">MCP Tool Invocation</button>
+          </div>
+          
+          <!-- Prolog Code Tab -->
+          <div id="prolog-code" class="tab-content active">
+            <button class="copy-btn" onclick="copyCode('prolog-pre')">Copy</button>
+            <pre id="prolog-pre"></pre>
+          </div>
+          
+          <!-- Python Code Tab -->
+          <div id="python-code" class="tab-content">
+            <button class="copy-btn" onclick="copyCode('python-pre')">Copy</button>
+            <pre id="python-pre"></pre>
+          </div>
+          
+          <!-- MCP Code Tab -->
+          <div id="mcp-code" class="tab-content">
+            <button class="copy-btn" onclick="copyCode('mcp-pre')">Copy</button>
+            <pre id="mcp-pre"></pre>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- API Reference Section -->
+    <section id="api">
+      <h2>API & Tool Reference</h2>
+      <p>The Queen MCP server exposes these analytical tools to clients. Under the hood, they map directly to functions inside <code>queen.py</code>.</p>
+      
+      <div class="glass-card" style="padding: 0; overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Tool Name</th>
+              <th>Parameters</th>
+              <th>Exposes Logic From</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>validate_move</code></td>
+              <td><code>fen</code> (str), <code>move_uci</code> (str)</td>
+              <td><code>validate_and_explain/4</code></td>
+              <td>Checks move legality. Returns boolean status and structured explanation if illegal.</td>
+            </tr>
+            <tr>
+              <td><code>get_legal_moves</code></td>
+              <td><code>fen</code> (str)</td>
+              <td><code>legal_move/4</code></td>
+              <td>Lists all legal moves in UCI format (e.g. <code>e2e4</code>).</td>
+            </tr>
+            <tr>
+              <td><code>get_game_status</code></td>
+              <td><code>fen</code> (str)</td>
+              <td><code>game_status/2</code></td>
+              <td>Calculates game status: <code>active</code>, <code>checkmate</code>, or <code>stalemate</code>.</td>
+            </tr>
+            <tr>
+              <td><code>get_pinned_pieces</code></td>
+              <td><code>fen</code> (str)</td>
+              <td><code>is_pinned/3</code></td>
+              <td>Identifies coordinates of friendly pieces pinned to the king.</td>
+            </tr>
+            <tr>
+              <td><code>get_threats</code></td>
+              <td><code>fen</code> (str)</td>
+              <td><code>is_attacked/3</code>, <code>is_defended/3</code></td>
+              <td>Retrieves lists of defended friendly pieces and threatened friendly pieces.</td>
+            </tr>
+            <tr>
+              <td><code>get_discovered_attacks</code></td>
+              <td><code>fen</code> (str)</td>
+              <td><code>discovered_attack_candidate/5</code></td>
+              <td>Detects slider alignments where moving a blocking piece opens an attack.</td>
+            </tr>
+            <tr>
+              <td><code>get_forks</code></td>
+              <td><code>fen</code> (str)</td>
+              <td><code>is_fork/5</code>, <code>creates_fork/5</code></td>
+              <td>Identifies existing forks and moves that create a new double attack.</td>
+            </tr>
+            <tr>
+              <td><code>get_tactical_summary</code></td>
+              <td><code>fen</code> (str)</td>
+              <td>All modules combined</td>
+              <td>Aggregates pins, forks, threats, checks, and phase data into a full position overview.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Setup Guide Section -->
+    <section id="setup">
+      <h2>Setup Guide</h2>
+      <div class="glass-card">
+        <p>Follow these steps to integrate the Queen MCP server with your environment:</p>
+        
+        <h3 style="color: var(--text-highlight); margin: 1.5rem 0 0.75rem; font-size: 1.2rem;">1. Install Dependencies</h3>
+        <p>Ensure you have SWI-Prolog installed on your system. On Debian/Ubuntu:</p>
+        <div class="code-tabs" style="min-height: auto; margin-bottom: 1.5rem;">
+          <div class="tab-content active" style="padding: 1rem;">
+            <pre><span class="builtin">sudo apt-get install</span> swi-prolog
+<span class="builtin">pip install</span> pyswip python-chess mcp</pre>
+          </div>
+        </div>
+
+        <h3 style="color: var(--text-highlight); margin: 1.5rem 0 0.75rem; font-size: 1.2rem;">2. Configure MCP Client</h3>
+        <p>To use Queen with the Claude Desktop client, add the server configuration inside your <code>claude_desktop_config.json</code> file:</p>
+        <div class="code-tabs" style="min-height: auto;">
+          <div class="tab-content active" style="padding: 1rem;">
+            <pre>{
+  <span class="keyword">"mcpServers"</span>: {
+    <span class="keyword">"queen"</span>: {
+      <span class="keyword">"command"</span>: <span class="string">"python"</span>,
+      <span class="keyword">"args"</span>: [
+        <span class="string">"/absolute/path/to/Queen/queen_mcp.py"</span>
+      ]
+    }
+  }
+}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Presets data
+    const presets = {
+      scholars: {
+        name: "Scholar's Mate (Checkmate)",
+        fen: "r1bqkb1r/pppp1Qpp/2n2n2/4p3/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 0 4",
+        highlights: {
+          check: ['e8'],
+          attack: ['f7']
+        },
+        prolog: `% Assert board state translated from FEN
+State = state([
+  piece(black, king, 5-8),
+  piece(white, queen, 6-7),
+  piece(white, bishop, 3-4),
+  ...
+], black, [wk,wq,bk,bq], none).
+
+% Query game status
+?- game_status(State, status(checkmate, white)).
+% Output: true.`,
+        python: `import queen
+
+fen = "r1bqkb1r/pppp1Qpp/2n2n2/4p3/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 0 4"
+
+# Query the status of the board position
+status = queen.get_game_status(fen)
+print(status)
+# Output: {'status': 'checkmate', 'winner': 'white'}
+
+# Let's inspect checks and attackers
+summary = queen.get_tactical_summary(fen)
+print(f"In check: {summary['in_check']}")
+# Output: In check: True`,
+        mcp: `{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "get_game_status",
+    "arguments": {
+      "fen": "r1bqkb1r/pppp1Qpp/2n2n2/4p3/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 0 4"
+    }
+  },
+  "id": 1
+}`
+      },
+      fork: {
+        name: "Knight Fork (Double Attack)",
+        fen: "r3k3/8/2N5/8/1q6/8/8/4K3 b - - 0 1",
+        highlights: {
+          check: ['e8'],
+          attack: ['c6', 'b4']
+        },
+        prolog: `% Query active fork relationships
+?- is_fork(Board, white, 3-6, 5-8, 2-4).
+% Output: true (Knight on c6 forks Black King on e8 and Black Queen on b4)
+
+% Query move diagnostics: King is checked by Knight
+?- validate_and_explain(State, 2-4, 5-4, Explanation).
+% Output: Explanation = "Active player King is in check: must move King or capture checker."`,
+        python: `import queen
+
+fen = "r3k3/8/2N5/8/1q6/8/8/4K3 b - - 0 1"
+
+# Query active forks and candidates
+forks = queen.get_forks(fen)
+print(forks['existing'])
+# Output: [{'forker': 'c6', 'targets': ['e8', 'b4']}]
+
+# Attempting an illegal move while in check
+legal, reason = queen.check_move_diagnostics(fen, "b4e4")
+print(f"Legal: {legal}, Explanation: {reason}")
+# Output: Legal: False, Explanation: Move exposes or leaves King in check.`,
+        mcp: `{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "get_forks",
+    "arguments": {
+      "fen": "r3k3/8/2N5/8/1q6/8/8/4K3 b - - 0 1"
+    }
+  },
+  "id": 2
+}`
+      },
+      pin: {
+        name: "Bishop Pin (Relative Pin)",
+        fen: "r1bqk2r/ppp2ppp/2n5/1B1pp3/4P3/3P1N2/PPP2PPP/RNBQK2R b KQkq - 0 5",
+        highlights: {
+          pin: ['b5', 'c6', 'e8']
+        },
+        prolog: `% Query pinned friendly pieces
+?- is_pinned(Board, black, 3-6).
+% Output: true (Knight on c6 (3-6) pinned to King on e8 by Bishop on b5)
+
+% Moving a pinned piece will expose the King to check
+?- validate_and_explain(State, 3-6, 4-4, Explanation).
+% Output: Explanation = "Move illegal: piece is pinned to King by bishop on b5."`,
+        python: `import queen
+
+fen = "r1bqk2r/ppp2ppp/2n5/1B1pp3/4P3/3P1N2/PPP2PPP/RNBQK2R b KQkq - 0 5"
+
+# Find pinned pieces for Black (c6 Knight)
+pinned = queen.get_pinned_pieces(fen)
+print(pinned)
+# Output: ['c6']
+
+# Querying tactical summary returns the pinning details
+summary = queen.get_tactical_summary(fen)
+print(summary['pinned_pieces'])
+# Output: ['c6']`,
+        mcp: `{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "get_pinned_pieces",
+    "arguments": {
+      "fen": "r1bqk2r/ppp2ppp/2n5/1B1pp3/4P3/3P1N2/PPP2PPP/RNBQK2R b KQkq - 0 5"
+    }
+  },
+  "id": 3
+}`
+      },
+      smothered: {
+        name: "Smothered Mate (Mated by Knight)",
+        fen: "6rk/5Npp/8/8/8/8/8/6RK b - - 0 1",
+        highlights: {
+          check: ['h8'],
+          attack: ['f7']
+        },
+        prolog: `% Query status of smothered position
+?- game_status(State, status(checkmate, white)).
+% Output: true (King is trapped by friendly pieces and attacked by f7 Knight)
+
+?- legal_move(State, From, To, _).
+% Output: false (No legal moves exist for Black)`,
+        python: `import queen
+
+fen = "6rk/5Npp/8/8/8/8/8/6RK b - - 0 1"
+
+# Query the status of the board position
+status = queen.get_game_status(fen)
+print(status)
+# Output: {'status': 'checkmate', 'winner': 'white'}
+
+# Get legal moves for turn player (Black)
+moves = queen.get_legal_moves(fen)
+print(moves)
+# Output: []`,
+        mcp: `{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "get_legal_moves",
+    "arguments": {
+      "fen": "6rk/5Npp/8/8/8/8/8/6RK b - - 0 1"
+    }
+  },
+  "id": 4
+}`
+      }
+    };
+
+    // Tab switcher
+    function switchTab(evt, tabId) {
+      const container = evt.currentTarget.closest('.code-tabs');
+      
+      // Deactivate other tabs
+      container.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      container.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      // Activate this tab
+      evt.currentTarget.classList.add('active');
+      container.querySelector('#' + tabId).classList.add('active');
+    }
+
+    // Copy code helper
+    function copyCode(preId) {
+      const pre = document.getElementById(preId);
+      navigator.clipboard.writeText(pre.textContent).then(() => {
+        const btn = pre.previousElementSibling;
+        const originalText = btn.textContent;
+        btn.textContent = "Copied!";
+        btn.style.color = "var(--cyan)";
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.color = "var(--text-muted)";
+        }, 1500);
+      });
+    }
+
+    // Active Sidebar Highlighter
+    const sections = document.querySelectorAll('section');
+    const navLinks = document.querySelectorAll('.nav-links a');
+    
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.clientHeight;
+        if (pageYOffset >= (sectionTop - 120)) {
+          current = section.getAttribute('id');
+        }
+      });
+      
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) {
+          link.classList.add('active');
+        }
+      });
+    });
+
+    // Chessboard rendering logic
+    function renderFen(fen, hPoints = {}) {
+      const boardEl = document.getElementById('chessboard');
+      boardEl.innerHTML = '';
+      
+      const parts = fen.trim().split(/\s+/);
+      const rows = parts[0].split('/');
+      
+      const pieceSymbols = {
+        'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚',
+        'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔'
+      };
+
+      const pieceNames = {
+        'p': 'Black Pawn', 'n': 'Black Knight', 'b': 'Black Bishop', 'r': 'Black Rook', 'q': 'Black Queen', 'k': 'Black King',
+        'P': 'White Pawn', 'N': 'White Knight', 'B': 'White Bishop', 'R': 'White Rook', 'Q': 'White Queen', 'K': 'White King'
+      };
+
+      // Helper to convert index to algebraic coordinate
+      function idxToCoord(row, file) {
+        return String.fromCharCode(97 + file) + (8 - row);
+      }
+      
+      for (let r = 0; r < 8; r++) {
+        const row = rows[r];
+        let fileIdx = 0;
+        for (let c = 0; c < row.length; c++) {
+          const char = row[c];
+          if (/\d/.test(char)) {
+            const emptyCount = parseInt(char);
+            for (let e = 0; e < emptyCount; e++) {
+              createSquare(r, fileIdx, null);
+              fileIdx++;
+            }
+          } else {
+            createSquare(r, fileIdx, char);
+            fileIdx++;
+          }
+        }
+      }
+      
+      function createSquare(row, file, pieceChar) {
+        const sq = document.createElement('div');
+        const isDark = (row + file) % 2 === 1;
+        sq.className = `square ${isDark ? 'dark' : 'light'}`;
+        
+        const coord = idxToCoord(row, file);
+        
+        // Apply highlighting states
+        if (hPoints.check && hPoints.check.includes(coord)) {
+          sq.classList.add('highlight-check');
+        } else if (hPoints.attack && hPoints.attack.includes(coord)) {
+          sq.classList.add('highlight-attack');
+        } else if (hPoints.pin && hPoints.pin.includes(coord)) {
+          sq.classList.add('highlight-pin');
+        }
+        
+        // Add coordinate labels
+        if (file === 0) {
+          const label = document.createElement('span');
+          label.className = 'label-rank';
+          label.textContent = 8 - row;
+          sq.appendChild(label);
+        }
+        if (row === 7) {
+          const label = document.createElement('span');
+          label.className = 'label-file';
+          label.textContent = String.fromCharCode(97 + file);
+          sq.appendChild(label);
+        }
+        
+        if (pieceChar) {
+          const piece = document.createElement('span');
+          piece.className = 'piece';
+          piece.textContent = pieceSymbols[pieceChar];
+          piece.title = pieceNames[pieceChar];
+          piece.classList.add(pieceChar === pieceChar.toUpperCase() ? 'white-piece' : 'black-piece');
+          sq.appendChild(piece);
+        }
+        
+        boardEl.appendChild(sq);
+      }
+    }
+
+    // Load preset function
+    function loadPreset(key) {
+      const preset = presets[key];
+      if (!preset) return;
+      
+      // Render board
+      renderFen(preset.fen, preset.highlights);
+      
+      // Update FEN label
+      document.getElementById('fen-display').textContent = preset.fen;
+      
+      // Update code pre blocks
+      document.getElementById('prolog-pre').textContent = preset.prolog;
+      document.getElementById('python-pre').textContent = preset.python;
+      document.getElementById('mcp-pre').textContent = preset.mcp;
+    }
+
+    // Initialize with first preset
+    loadPreset('scholars');
+  </script>
+</body>
+</html>
