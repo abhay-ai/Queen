@@ -499,7 +499,7 @@ forced_material_win_two(State, FromX-FromY, ToX-ToY, Promo, MinGain) :-
 
 % Calculate mobility of a piece (number of legal target squares it can reach)
 piece_mobility(Board, Type, StartX-StartY, Mobility) :-
-    findall(EndX-EndY, move_piece(Type, Board, none, StartX-StartY, EndX-EndY), Ends),
+    findall(EndX-EndY, (on_board(EndX-EndY), move_piece(Type, Board, none, StartX-StartY, EndX-EndY)), Ends),
     length(Ends, Mobility).
 
 % Base values for dynamic piece evaluation (pawn=100, king=0)
@@ -521,7 +521,7 @@ dynamic_piece_value(Board, Color, pawn, X-Y, Value) :-
         Value is Base
     ), !.
 
-dynamic_piece_value(Board, Color, knight, X-Y, Value) :-
+dynamic_piece_value(_Board, Color, knight, X-Y, Value) :-
     base_piece_value(knight, Base),
     % Centralization bonus on 5th/6th rank (white) or 3rd/4th rank (black)
     (
@@ -539,7 +539,7 @@ dynamic_piece_value(Board, Color, knight, X-Y, Value) :-
         Value is Value1
     ), !.
 
-dynamic_piece_value(Board, Color, bishop, X-Y, Value) :-
+dynamic_piece_value(Board, _Color, bishop, X-Y, Value) :-
     base_piece_value(bishop, Base),
     piece_mobility(Board, bishop, X-Y, Mobility),
     % Bishop mobility bonus: +8 points per square.
