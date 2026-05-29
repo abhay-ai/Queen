@@ -842,9 +842,9 @@
 
     <!-- Setup Guide Section -->
     <section id="setup">
-      <h2>Setup Guide</h2>
+      <h2>Setup & Usage Guide</h2>
       <div class="glass-card">
-        <p>Follow these steps to integrate the Queen MCP server with your environment:</p>
+        <p>Follow these steps to integrate Queen as an MCP server or use it directly as a Python library:</p>
         
         <h3 class="setup-step">1. Install Dependencies</h3>
         <p>Ensure you have SWI-Prolog installed on your system. On Debian/Ubuntu:</p>
@@ -857,7 +857,7 @@
 
         <h3 class="setup-step">2. Configure MCP Client</h3>
         <p>To use Queen with the Claude Desktop client, add the server configuration inside your <code>claude_desktop_config.json</code> file:</p>
-        <div class="code-tabs compact">
+        <div class="code-tabs compact mb-6">
           <div class="tab-content active">
             <pre>{
   <span class="keyword">"mcpServers"</span>: {
@@ -869,6 +869,38 @@
     }
   }
 }</pre>
+          </div>
+        </div>
+
+        <h3 class="setup-step">3. Python Library Integration</h3>
+        <p>You can import Queen's logical constraints directly in your Python applications in two ways:</p>
+        
+        <h4 style="color: var(--text-highlight); margin: 1rem 0 0.5rem; font-size: 1.05rem;">Option A: Direct Import (No Installation)</h4>
+        <p>Simply copy <code>queen.py</code> and <code>queen.pl</code> directly into your project directory, then import it immediately:</p>
+        <div class="code-tabs compact mb-6">
+          <div class="tab-content active">
+            <pre><span class="keyword">import</span> queen
+
+<span class="comment"># Validate a move and get symbolic constraint explanations</span>
+is_legal, explanation = queen.check_move_diagnostics(
+    <span class="string">"r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4"</span>,
+    <span class="string">"e8f7"</span>
+)
+<span class="builtin">print</span>(is_legal, explanation)</pre>
+          </div>
+        </div>
+
+        <h4 style="color: var(--text-highlight); margin: 1rem 0 0.5rem; font-size: 1.05rem;">Option B: Install as a Pip Package</h4>
+        <p>You can also install Queen as a package using pip, which automatically bundles the Prolog rules engine:</p>
+        <div class="code-tabs compact mb-6">
+          <div class="tab-content active">
+            <pre><span class="builtin">pip install</span> queen-chess</pre>
+          </div>
+        </div>
+        <p>Or install the local repository in editable development mode:</p>
+        <div class="code-tabs compact">
+          <div class="tab-content active">
+            <pre><span class="builtin">pip install -e</span> .</pre>
           </div>
         </div>
       </div>

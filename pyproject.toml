@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "queen-chess"
+version = "0.1.0"
+authors = [
+    { name = "Abhaya Kammara", email = "herr.abhay@gmail.com" }
+]
+description = "A high-fidelity hybrid chess validation and tactical analysis system combining SWI-Prolog constraints with Python and MCP."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Games/Entertainment :: Board Games",
+]
+dependencies = [
+    "pyswip>=0.2.10",
+    "chess>=1.10.0",
+    "mcp>=0.1.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/abhay-ai/Queen"
+"Bug Tracker" = "https://github.com/abhay-ai/Queen/issues"
+
+[project.scripts]
+queen-mcp = "queen_mcp:main"
+
+[tool.setuptools]
+py-modules = ["queen", "queen_mcp"]
+
+[tool.setuptools.package-data]
+"" = ["queen.pl"]

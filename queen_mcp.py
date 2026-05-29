@@ -130,6 +130,9 @@ def get_tactical_summary(fen: str) -> dict:
     """
     return queen.get_tactical_summary(fen)
 
-if __name__ == "__main__":
+def main():
     # Start the stdio MCP server
     mcp.run()
+
+if __name__ == "__main__":
+    main()
