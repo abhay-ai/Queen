@@ -556,6 +556,7 @@
       <li><a href="#overview" class="active">Overview</a></li>
       <li><a href="#architecture">Architecture</a></li>
       <li><a href="#playground">Playground</a></li>
+      <li><a href="#usecase">Use Case (R_Daneel_AI)</a></li>
       <li><a href="#api">API Reference</a></li>
       <li><a href="#setup">Setup Guide</a></li>
     </ul>
@@ -679,6 +680,82 @@
           </div>
         </div>
 
+      </div>
+    </section>
+
+    <!-- Use Case Section -->
+    <section id="usecase">
+      <h2>Use Case: R_Daneel_AI</h2>
+      <p>
+        The power of Queen's symbolic chess constraints is demonstrated in <a href="https://abhay-ai.github.io/R_Daneel_AI/" target="_blank"><strong>R_Daneel_AI</strong></a>, a neuro-symbolic chess bot. While traditional engines rely on raw mathematical calculation and LLMs normally struggle with legal move generation, R_Daneel_AI uses an LLM for planning and relies on <strong>Queen</strong> to act as its "eyes and referee."
+      </p>
+      <p>
+        By querying Queen for move legality, pins, discovered attacks, and mate checks, the LLM is able to play error-free chess and formulate chess strategies through reasoning rather than brute-force search.
+      </p>
+
+      <h3 style="color: var(--text-highlight); margin: 1.5rem 0 0.75rem; font-size: 1.1rem; font-weight: 600;">Tactical Elo Benchmarks</h3>
+      <p>
+        To evaluate this approach, a comprehensive benchmark was run across <strong>500 Lichess chess puzzles</strong> (ranging from 600 to 1500 Elo). The benchmark compared a pure LLM baseline (given legal moves but no tools) against R_Daneel_AI (powered by the local model <code>gemma-4-26B</code> served via vLLM, integrated with Queen):
+      </p>
+
+      <!-- Big Highlights Grid -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="glass-card" style="padding: 1.5rem; text-align: center; margin-bottom: 0;">
+          <span style="display: block; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; font-weight: 600;">Tactical ELO Gain</span>
+          <span style="font-size: 2.5rem; font-weight: 700; color: var(--cyan); line-height: 1;">+805</span>
+          <span style="display: block; font-size: 0.9rem; color: var(--text-muted); margin-top: 0.5rem;">Elo Rating Increase</span>
+        </div>
+        
+        <div class="glass-card" style="padding: 1.5rem; text-align: center; margin-bottom: 0;">
+          <span style="display: block; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; font-weight: 600;">R_Daneel_AI Solved Rate</span>
+          <span style="font-size: 2.5rem; font-weight: 700; color: var(--accent); line-height: 1;">80.8%</span>
+          <span style="display: block; font-size: 0.9rem; color: var(--text-muted); margin-top: 0.5rem;">404 / 500 Puzzles Solved</span>
+        </div>
+
+        <div class="glass-card" style="padding: 1.5rem; text-align: center; margin-bottom: 0;">
+          <span style="display: block; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; font-weight: 600;">Baseline Solved Rate</span>
+          <span style="font-size: 2.5rem; font-weight: 700; color: var(--text-muted); line-height: 1;">16.0%</span>
+          <span style="display: block; font-size: 0.9rem; color: var(--text-muted); margin-top: 0.5rem;">80 / 500 Puzzles Solved</span>
+        </div>
+      </div>
+      
+      <div class="glass-card flush">
+        <table>
+          <thead>
+            <tr>
+              <th>Evaluation Metric (500-Puzzle Benchmark)</th>
+              <th>Pure LLM Baseline<br><span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal; font-family: var(--font-mono);">gemma-4-26B</span></th>
+              <th>R_Daneel_AI (Ours)<br><span style="font-size: 0.75rem; color: var(--accent); font-weight: normal; font-family: var(--font-mono);">gemma-4-26B + Queen</span></th>
+              <th>Improvement Delta</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Puzzles Solved</strong></td>
+              <td>80 / 500</td>
+              <td><strong>404 / 500</strong></td>
+              <td style="color: var(--cyan); font-weight: 600;">+324 puzzles solved</td>
+            </tr>
+            <tr>
+              <td><strong>Accuracy / Pass Rate</strong></td>
+              <td>16.0%</td>
+              <td><strong>80.8%</strong></td>
+              <td style="color: var(--cyan); font-weight: 600;">+64.8% accuracy boost</td>
+            </tr>
+            <tr>
+              <td><strong>Tactical Elo (Bisection Method)</strong></td>
+              <td style="color: var(--accent); font-family: var(--font-mono); font-weight: 600;">673 Elo</td>
+              <td style="color: var(--accent); font-family: var(--font-mono); font-weight: 600;">1478 Elo</td>
+              <td style="color: var(--cyan); font-weight: 600;">+805 Elo Points</td>
+            </tr>
+            <tr>
+              <td><strong>Inference Retries / Logic Loops</strong></td>
+              <td>High (6+ retries)</td>
+              <td><strong>0.18 avg retries</strong></td>
+              <td>Resolved loop deadlocks</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
