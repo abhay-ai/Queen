@@ -648,6 +648,7 @@
             <button class="tab-btn active" onclick="switchTab(event, 'prolog-code')">Prolog Query</button>
             <button class="tab-btn" onclick="switchTab(event, 'python-code')">Python Bridge</button>
             <button class="tab-btn" onclick="switchTab(event, 'mcp-code')">MCP Tool Invocation</button>
+            <button class="tab-btn" onclick="switchTab(event, 'summary-code')">Tactical Summary</button>
           </div>
           
           <!-- Prolog Code Tab -->
@@ -666,6 +667,12 @@
           <div id="mcp-code" class="tab-content">
             <button class="copy-btn" onclick="copyCode('mcp-pre')">Copy</button>
             <pre id="mcp-pre"></pre>
+          </div>
+          
+          <!-- Tactical Summary Tab -->
+          <div id="summary-code" class="tab-content">
+            <button class="copy-btn" onclick="copyCode('summary-pre')">Copy</button>
+            <pre id="summary-pre"></pre>
           </div>
         </div>
 
@@ -778,8 +785,7 @@
   </main>
 
   <script>
-    // Presets data
-    const presets = {
+    // Presets    const presets = {
       scholars: {
         name: "Scholar's Mate (Checkmate)",
         fen: "r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4",
@@ -821,6 +827,36 @@ print(f"In check: {summary['in_check']}")
     }
   },
   "id": 1
+}`,
+        summary: `{
+  "in_check": true,
+  "checking_pieces": [
+    { "piece": "queen", "square": "f7" }
+  ],
+  "game_status": {
+    "status": "checkmate",
+    "winner": "white"
+  },
+  "pinned_pieces": [],
+  "threatened_pieces": [
+    { "piece": "king", "square": "e8" }
+  ],
+  "defended_pieces": [
+    { "piece": "queen", "square": "f7" }
+  ],
+  "discovered_attacks": [],
+  "forks": {
+    "existing": [],
+    "moves_creating_forks": []
+  },
+  "material_values": {
+    "white": 39,
+    "black": 38
+  },
+  "advantage": {
+    "color": "white",
+    "margin": 1
+  }
 }`
       },
       fork: {
@@ -860,6 +896,37 @@ print(f"Legal: {legal}, Explanation: {reason}")
     }
   },
   "id": 2
+}`,
+        summary: `{
+  "in_check": true,
+  "checking_pieces": [
+    { "piece": "knight", "square": "d5" }
+  ],
+  "game_status": {
+    "status": "active",
+    "winner": null
+  },
+  "pinned_pieces": [],
+  "threatened_pieces": [
+    { "piece": "king", "square": "c7" },
+    { "piece": "queen", "square": "b4" }
+  ],
+  "defended_pieces": [],
+  "discovered_attacks": [],
+  "forks": {
+    "existing": [
+      { "forker": "d5", "targets": ["c7", "b4"] }
+    ],
+    "moves_creating_forks": []
+  },
+  "material_values": {
+    "white": 3,
+    "black": 9
+  },
+  "advantage": {
+    "color": "black",
+    "margin": 6
+  }
 }`
       },
       pin: {
@@ -898,6 +965,34 @@ print(summary['pinned_pieces'])
     }
   },
   "id": 3
+}`,
+        summary: `{
+  "in_check": false,
+  "checking_pieces": [],
+  "game_status": {
+    "status": "active",
+    "winner": null
+  },
+  "pinned_pieces": ["c6"],
+  "threatened_pieces": [
+    { "piece": "knight", "square": "c6" }
+  ],
+  "defended_pieces": [
+    { "piece": "knight", "square": "c6" }
+  ],
+  "discovered_attacks": [],
+  "forks": {
+    "existing": [],
+    "moves_creating_forks": []
+  },
+  "material_values": {
+    "white": 38,
+    "black": 38
+  },
+  "advantage": {
+    "color": "none",
+    "margin": 0
+  }
 }`
       },
       smothered: {
@@ -936,6 +1031,34 @@ print(moves)
     }
   },
   "id": 4
+}`,
+        summary: `{
+  "in_check": true,
+  "checking_pieces": [
+    { "piece": "knight", "square": "f7" }
+  ],
+  "game_status": {
+    "status": "checkmate",
+    "winner": "white"
+  },
+  "pinned_pieces": [],
+  "threatened_pieces": [
+    { "piece": "king", "square": "h8" }
+  ],
+  "defended_pieces": [],
+  "discovered_attacks": [],
+  "forks": {
+    "existing": [],
+    "moves_creating_forks": []
+  },
+  "material_values": {
+    "white": 8,
+    "black": 5
+  },
+  "advantage": {
+    "color": "white",
+    "margin": 3
+  }
 }`
       },
       mate2: {
@@ -982,6 +1105,35 @@ print(f"Mate in 2 available with Rf7: {is_mate_in_two}")
     }
   },
   "id": 5
+}`,
+        summary: `{
+  "in_check": false,
+  "checking_pieces": [],
+  "game_status": {
+    "status": "active",
+    "winner": null
+  },
+  "pinned_pieces": [],
+  "threatened_pieces": [],
+  "defended_pieces": [],
+  "discovered_attacks": [
+    { "blocker": "f6", "attacker": "e5", "target": "h8" }
+  ],
+  "forks": {
+    "existing": [],
+    "moves_creating_forks": []
+  },
+  "mate_in_one": null,
+  "mate_in_two": ["f6f7"],
+  "mate_in_three": ["f6f7"],
+  "material_values": {
+    "white": 14,
+    "black": 11
+  },
+  "advantage": {
+    "color": "white",
+    "margin": 3
+  }
 }`
       },
       evasion: {
@@ -1018,6 +1170,34 @@ print(f"Reason: {explanation}")
     }
   },
   "id": 6
+}`,
+        summary: `{
+  "in_check": true,
+  "checking_pieces": [
+    { "piece": "queen", "square": "h5" }
+  ],
+  "game_status": {
+    "status": "active",
+    "winner": null
+  },
+  "pinned_pieces": [],
+  "threatened_pieces": [
+    { "piece": "king", "square": "e8" }
+  ],
+  "defended_pieces": [],
+  "discovered_attacks": [],
+  "forks": {
+    "existing": [],
+    "moves_creating_forks": []
+  },
+  "material_values": {
+    "white": 39,
+    "black": 38
+  },
+  "advantage": {
+    "color": "white",
+    "margin": 1
+  }
 }`
       },
       passed: {
@@ -1053,6 +1233,38 @@ print(status['dynamic_material_values'])
     }
   },
   "id": 7
+}`,
+        summary: `{
+  "in_check": false,
+  "checking_pieces": [],
+  "game_status": {
+    "status": "active",
+    "winner": null
+  },
+  "pinned_pieces": [],
+  "threatened_pieces": [],
+  "defended_pieces": [],
+  "discovered_attacks": [],
+  "forks": {
+    "existing": [],
+    "moves_creating_forks": []
+  },
+  "material_values": {
+    "white": 1,
+    "black": 0
+  },
+  "dynamic_material_values": {
+    "white": 1.6,
+    "black": 0.0
+  },
+  "advantage": {
+    "color": "white",
+    "margin": 1
+  },
+  "dynamic_advantage": {
+    "color": "white",
+    "margin": 1.6
+  }
 }`
       }
     };
@@ -1206,6 +1418,7 @@ print(status['dynamic_material_values'])
       document.getElementById('prolog-pre').textContent = preset.prolog;
       document.getElementById('python-pre').textContent = preset.python;
       document.getElementById('mcp-pre').textContent = preset.mcp;
+      document.getElementById('summary-pre').textContent = preset.summary;
     }
 
     // Initialize with first preset
