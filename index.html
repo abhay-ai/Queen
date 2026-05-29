@@ -633,6 +633,7 @@
                 <option value="mate2">Forced Mate-in-Two (Symbolic Search)</option>
                 <option value="evasion">Illegal Check Evasion (Metarational Explanation)</option>
                 <option value="passed">Passed Pawn Progress (Dynamic Valuation)</option>
+                <option value="middlegame_tactic">Middlegame Tactical Summary (Complex Analysis)</option>
               </optgroup>
             </select>
           </div>
@@ -1265,6 +1266,78 @@ print(status['dynamic_material_values'])
   "dynamic_advantage": {
     "color": "white",
     "margin": 1.6
+  }
+}`
+      },
+      middlegame_tactic: {
+        name: "Middlegame Tactical Summary (Complex Analysis)",
+        fen: "r3kb1r/ppp1qppp/1bnp1n2/1B2N1B1/8/2PP1N2/PP4PP/R2QR1K1 w kq - 0 9",
+        highlights: {
+          pin: ['b5', 'c6', 'e8'],
+          attack: ['e1', 'e5', 'e7']
+        },
+        prolog: `% Assert board state
+% White Bishop on b5 (2-5) pins Black Knight on c6 (3-6) to King on e8 (5-8)
+?- is_pinned(Board, black, 3-6).
+% Output: true.
+
+% Discovered Attack setup: e1 Rook, e5 Knight blocker, e7 Queen target
+?- discovered_attack_candidate(Board, white, 5-5, 5-1, 5-7).
+% Output: true. (If e5 Knight moves, e1 Rook attacks e7 Queen)`,
+        python: `import queen
+
+fen = "r3kb1r/ppp1qppp/1bnp1n2/1B2N1B1/8/2PP1N2/PP4PP/R2QR1K1 w kq - 0 9"
+
+# Query the dynamic tactical summary
+summary = queen.get_tactical_summary(fen)
+
+# Check pins and discovered attack paths
+print("Pinned Pieces:", summary['pinned_pieces'])
+# Output: Pinned Pieces: ['c6']
+print("Discovered Attacks:", summary['discovered_attacks'])
+# Output: Discovered Attacks: [{'blocker': 'e5', 'attacker': 'e1', 'target': 'e7'}]`,
+        mcp: `{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "get_tactical_summary",
+    "arguments": {
+      "fen": "r3kb1r/ppp1qppp/1bnp1n2/1B2N1B1/8/2PP1N2/PP4PP/R2QR1K1 w kq - 0 9"
+    }
+  },
+  "id": 8
+}`,
+        summary: `{
+  "in_check": false,
+  "checking_pieces": [],
+  "game_status": {
+    "status": "active",
+    "winner": null
+  },
+  "pinned_pieces": ["c6"],
+  "threatened_pieces": [
+    { "piece": "knight", "square": "c6" },
+    { "piece": "knight", "square": "f6" }
+  ],
+  "defended_pieces": [
+    { "piece": "knight", "square": "c6" },
+    { "piece": "knight", "square": "f6" },
+    { "piece": "queen", "square": "e7" }
+  ],
+  "discovered_attacks": [
+    { "blocker": "e5", "attacker": "e1", "target": "e7" }
+  ],
+  "forks": {
+    "existing": [],
+    "moves_creating_forks": []
+  },
+  "material_values": {
+    "white": 37,
+    "black": 37
+  },
+  "advantage": {
+    "color": "none",
+    "margin": 0
   }
 }`
       }
