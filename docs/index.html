@@ -846,12 +846,17 @@
       <div class="glass-card">
         <p>Follow these steps to integrate Queen as an MCP server or use it directly as a Python library:</p>
         
-        <h3 class="setup-step">1. Install Dependencies</h3>
-        <p>Ensure you have SWI-Prolog installed on your system. On Debian/Ubuntu:</p>
+        <h3 class="setup-step">1. System & Python Dependencies</h3>
+        <p>Queen requires SWI-Prolog installed on your operating system (as the Python bridge binds to its shared library). On Debian/Ubuntu:</p>
         <div class="code-tabs compact mb-6">
           <div class="tab-content active">
-            <pre><span class="builtin">sudo apt-get install</span> swi-prolog
-<span class="builtin">pip install</span> pyswip python-chess mcp</pre>
+            <pre><span class="builtin">sudo apt-get install</span> swi-prolog</pre>
+          </div>
+        </div>
+        <p>If you are running the MCP server or modules directly from source without installing the pip package, install the Python dependencies manually:</p>
+        <div class="code-tabs compact mb-6">
+          <div class="tab-content active">
+            <pre><span class="builtin">pip install</span> pyswip python-chess mcp</pre>
           </div>
         </div>
 
