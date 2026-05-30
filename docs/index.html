@@ -325,6 +325,52 @@
       pointer-events: none;
     }
 
+    .square.selected {
+      outline: 3px solid var(--accent);
+      outline-offset: -3px;
+      z-index: 5;
+    }
+    .square.legal-target::after {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background-color: rgba(57, 211, 83, 0.5);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 4;
+      pointer-events: none;
+    }
+    .square.legal-target.has-piece::after {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 3px solid rgba(57, 211, 83, 0.5);
+      background: none;
+    }
+
+    #playground-status {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      display: none;
+    }
+    #playground-status.error {
+      display: block;
+      background: rgba(248, 81, 73, 0.15);
+      border: 1px solid var(--red);
+      color: #ff7b72;
+    }
+    #playground-status.success {
+      display: block;
+      background: rgba(57, 211, 83, 0.15);
+      border: 1px solid var(--cyan);
+      color: #79c0ff;
+    }
+
     .fen-container {
       position: relative;
       width: 100%;
@@ -654,6 +700,14 @@
             </select>
             <p class="playground-hint">👉 Click the dropdown to swap scenarios and watch the live data payload change across the stack.</p>
           </div>
+
+          <div class="preset-selector" style="margin-top: 1.5rem;">
+            <label for="fen-input">Or Input Custom FEN</label>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+              <input type="text" id="fen-input" style="flex: 1; background: #0d1117; border: 1px solid var(--panel-border); color: var(--text-highlight); padding: 0.5rem; border-radius: 4px; font-family: var(--font-mono); font-size: 0.85rem;" placeholder="r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4">
+              <button onclick="loadCustomFenInput()" style="background: var(--accent); color: #0d1117; border: none; padding: 0.5rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer; transition: none;">Analyze</button>
+            </div>
+          </div>
           
           <div id="chessboard" class="chessboard"></div>
           
@@ -661,6 +715,7 @@
             <div id="fen-display" class="fen-display"></div>
             <button class="fen-copy-btn" onclick="copyFen()">Copy FEN</button>
           </div>
+          <div id="playground-status"></div>
         </div>
 
         <!-- Right Side: Code Tabs -->
@@ -921,6 +976,9 @@ is_legal, explanation = queen.check_move_diagnostics(
 
   </main>
 
+  <script src="https://unpkg.com/tau-prolog@0.3.2/modules/core.js"></script>
+  <script src="https://unpkg.com/tau-prolog@0.3.2/modules/lists.js"></script>
+  <script src="queen_engine.js"></script>
   <script>
     // Presets data
     const presets = {
@@ -1596,6 +1654,7 @@ print("Discovered Attacks:", summary['discovered_attacks'])
         sq.className = `square ${isDark ? 'dark' : 'light'}`;
         
         const coord = idxToCoord(row, file);
+        sq.dataset.coord = coord;
         
         // Apply highlighting states
         if (hPoints.check && hPoints.check.includes(coord)) {
@@ -1627,8 +1686,10 @@ print("Discovered Attacks:", summary['discovered_attacks'])
           piece.title = pieceNames[pieceChar];
           piece.classList.add(pieceChar === pieceChar.toUpperCase() ? 'white-piece' : 'black-piece');
           sq.appendChild(piece);
+          sq.classList.add('has-piece');
         }
         
+        sq.addEventListener('click', () => handleSquareClick(coord));
         boardEl.appendChild(sq);
       }
     }
@@ -1638,21 +1699,379 @@ print("Discovered Attacks:", summary['discovered_attacks'])
       const preset = presets[key];
       if (!preset) return;
       
-      // Render board
-      renderFen(preset.fen, preset.highlights);
+      clearSelection();
+      clearStatus();
       
-      // Update FEN label
       document.getElementById('fen-display').textContent = preset.fen;
+      document.getElementById('fen-input').value = preset.fen;
+      currentFen = preset.fen;
       
-      // Update code pre blocks
-      document.getElementById('prolog-pre').textContent = preset.prolog;
-      document.getElementById('python-pre').textContent = preset.python;
-      document.getElementById('mcp-pre').textContent = preset.mcp;
-      document.getElementById('summary-pre').textContent = preset.summary;
+      if (engineReady) {
+        analyzeFen(preset.fen);
+      } else {
+        renderFen(preset.fen, preset.highlights);
+        document.getElementById('prolog-pre').textContent = preset.prolog;
+        document.getElementById('python-pre').textContent = preset.python;
+        document.getElementById('mcp-pre').textContent = preset.mcp;
+        document.getElementById('summary-pre').textContent = preset.summary;
+      }
     }
 
-    // Initialize with first preset
-    loadPreset('scholars');
+    // Interactive Chessboard Logic & Tau Prolog Bridge
+    let selectedSquare = null;
+    let legalTargets = [];
+    let currentFen = "";
+    let engineReady = false;
+
+    function handleSquareClick(coord) {
+      if (!engineReady) {
+        showStatus("Prolog constraints engine is still loading in browser...", "error");
+        return;
+      }
+      
+      clearStatus();
+      
+      if (legalTargets.includes(coord)) {
+        executeMove(selectedSquare, coord);
+        return;
+      }
+      
+      const sqEl = document.querySelector(`.square[data-coord="${coord}"]`);
+      const pieceEl = sqEl ? sqEl.querySelector('.piece') : null;
+      
+      if (pieceEl) {
+        const isWhitePiece = pieceEl.classList.contains('white-piece');
+        const activeColor = currentFen.split(" ")[1] || "w";
+        const isMyPiece = (activeColor === "w" && isWhitePiece) || (activeColor === "b" && !isWhitePiece);
+        
+        if (isMyPiece) {
+          selectedSquare = coord;
+          highlightSelection(coord);
+          return;
+        }
+      }
+      
+      if (selectedSquare && selectedSquare !== coord) {
+        const moveUci = selectedSquare + coord;
+        jsCheckMoveDiagnostics(currentFen, moveUci, function(legal, explanation) {
+          if (!legal) {
+            showStatus(`Illegal Move (${moveUci.toUpperCase()}): ${explanation}`, "error");
+          }
+        });
+      }
+      
+      clearSelection();
+    }
+
+    function highlightSelection(coord) {
+      document.querySelectorAll('.square').forEach(sq => {
+        sq.classList.remove('selected', 'legal-target');
+      });
+      
+      const sqEl = document.querySelector(`.square[data-coord="${coord}"]`);
+      if (sqEl) sqEl.classList.add('selected');
+      
+      jsGetLegalMoves(currentFen, function(moves) {
+        legalTargets = [];
+        moves.forEach(move => {
+          if (move.substring(0, 2) === coord) {
+            const target = move.substring(2, 4);
+            legalTargets.push(target);
+            const targetEl = document.querySelector(`.square[data-coord="${target}"]`);
+            if (targetEl) {
+              targetEl.classList.add('legal-target');
+              if (targetEl.classList.contains('has-piece')) {
+                targetEl.classList.add('has-piece'); // ensures style triggers
+              }
+            }
+          }
+        });
+      });
+    }
+
+    function clearSelection() {
+      selectedSquare = null;
+      legalTargets = [];
+      document.querySelectorAll('.square').forEach(sq => {
+        sq.classList.remove('selected', 'legal-target');
+      });
+    }
+
+    function executeMove(from, to) {
+      const fileMap = {'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8};
+      const parsed = parseFenToPrologVars(currentFen);
+      
+      const plFrom = `${fileMap[from[0]]}-${from[1]}`;
+      const plTo = `${fileMap[to[0]]}-${to[1]}`;
+      
+      const queryStr = `legal_move(${parsed.term}, ${plFrom}, ${plTo}, state(NewBoard, NewColor, NewRights, NewEP)).`;
+      
+      queryPrologSingle(queryStr, function(answer, err) {
+        if (err) {
+          showStatus("Failed to execute move: " + err, "error");
+          clearSelection();
+          return;
+        }
+        
+        const newBoard = termToJs(answer.lookup("NewBoard"));
+        const newColor = termToJs(answer.lookup("NewColor"));
+        const newRights = termToJs(answer.lookup("NewRights"));
+        const newEP = termToJs(answer.lookup("NewEP"));
+        
+        const nextFen = prologStateToFen(newBoard, newColor, newRights, newEP);
+        analyzeFen(nextFen);
+        clearSelection();
+      });
+    }
+
+    function prologStateToFen(boardList, turnColor, rightsList, epFile) {
+      const grid = Array(8).fill(null).map(() => Array(8).fill(null));
+      const pieceSymbols = {
+        'pawn': 'p', 'knight': 'n', 'bishop': 'b', 'rook': 'r', 'queen': 'q', 'king': 'k'
+      };
+      
+      boardList.forEach(item => {
+        let color, type, x, y;
+        if (item && item.functor === "piece") {
+          color = item.args[0];
+          type = item.args[1];
+          const coord = item.args[2];
+          x = coord.args ? coord.args[0] : parseInt(coord.split("-")[0]);
+          y = coord.args ? coord.args[1] : parseInt(coord.split("-")[1]);
+        }
+        
+        if (color && type && x && y) {
+          let symbol = pieceSymbols[type];
+          if (color === 'white') symbol = symbol.toUpperCase();
+          grid[8 - y][x - 1] = symbol;
+        }
+      });
+      
+      const rows = [];
+      for (let r = 0; r < 8; r++) {
+        let emptyCount = 0;
+        let rowStr = "";
+        for (let c = 0; c < 8; c++) {
+          const piece = grid[r][c];
+          if (piece === null) {
+            emptyCount++;
+          } else {
+            if (emptyCount > 0) {
+              rowStr += emptyCount;
+              emptyCount = 0;
+            }
+            rowStr += piece;
+          }
+        }
+        if (emptyCount > 0) {
+          rowStr += emptyCount;
+        }
+        rows.push(rowStr);
+      }
+      
+      const boardFen = rows.join("/");
+      const activeColor = turnColor === "white" ? "w" : "b";
+      
+      let rightsStr = "";
+      if (rightsList.includes("wk")) rightsStr += "K";
+      if (rightsList.includes("wq")) rightsStr += "Q";
+      if (rightsList.includes("bk")) rightsStr += "k";
+      if (rightsList.includes("bq")) rightsStr += "q";
+      if (rightsStr === "") rightsStr = "-";
+      
+      let epStr = "-";
+      if (epFile !== "none" && epFile !== undefined && epFile !== null && epFile !== 0) {
+        const fileMapInv = {1: 'a', 2: 'b', 3: 'c', 4: 'd', 5: 'e', 6: 'f', 7: 'g', 8: 'h'};
+        const fileChar = fileMapInv[Number(epFile)];
+        const epRank = turnColor === "white" ? 6 : 3;
+        epStr = fileChar + epRank;
+      }
+      
+      return `${boardFen} ${activeColor} ${rightsStr} ${epStr} 0 1`;
+    }
+
+    function analyzeFen(fen) {
+      currentFen = fen;
+      document.getElementById('fen-input').value = fen;
+      document.getElementById('fen-display').textContent = fen;
+      
+      jsGetTacticalSummary(fen, function(summary, err) {
+        if (err) {
+          showStatus("Error analyzing position: " + err, "error");
+          return;
+        }
+        
+        const hPoints = getHighlightsFromSummary(summary, fen);
+        renderFen(fen, hPoints);
+        updateCodeTabs(fen, summary);
+      });
+    }
+
+    function getHighlightsFromSummary(summary, fen) {
+      const highlights = {
+        check: [],
+        pin: [...summary.pinned_pieces],
+        attack: []
+      };
+      
+      const parts = fen.split(" ");
+      const boardPart = parts[0];
+      const turn = parts[1] || "w";
+      const kingChar = turn === "w" ? "K" : "k";
+      
+      if (summary.in_check) {
+        const ranks = boardPart.split("/");
+        for (let r = 0; r < 8; r++) {
+          let fileIdx = 0;
+          for (let c = 0; c < ranks[r].length; c++) {
+            const char = ranks[r][c];
+            if (/\d/.test(char)) {
+              fileIdx += parseInt(char, 10);
+            } else {
+              if (char === kingChar) {
+                const coord = String.fromCharCode(97 + fileIdx) + (8 - r);
+                highlights.check.push(coord);
+                break;
+              }
+              fileIdx++;
+            }
+          }
+        }
+      }
+      
+      summary.discovered_attacks.forEach(da => {
+        if (da.blocker) highlights.attack.push(da.blocker);
+        if (da.attacker) highlights.attack.push(da.attacker);
+      });
+      
+      return highlights;
+    }
+
+    function updateCodeTabs(fen, summary) {
+      document.getElementById('prolog-pre').textContent = generatePrologCode(fen, summary);
+      document.getElementById('python-pre').textContent = generatePythonCode(fen);
+      document.getElementById('mcp-pre').textContent = generateMcpCode(fen);
+      document.getElementById('summary-pre').textContent = generateSummaryCode(summary);
+    }
+
+    function generatePrologCode(fen, summary) {
+      const parsed = parseFenToPrologVars(fen);
+      if (!parsed) return "% Invalid FEN";
+      
+      const boardItems = parsed.prologBoard.substring(1, parsed.prologBoard.length - 1).split(",");
+      let boardListFormatted = "[\n";
+      for (let i = 0; i < boardItems.length; i += 2) {
+        const item1 = boardItems[i] || "";
+        const item2 = boardItems[i+1] || "";
+        boardListFormatted += "  " + item1 + (item2 ? ", " + item2 : "") + (i + 2 < boardItems.length ? ",\n" : "\n");
+      }
+      boardListFormatted += "]";
+      
+      let out = `% 1. Asserted chess board state\n`;
+      out += `State = state(${boardListFormatted},\n  ${parsed.turnColor}, ${parsed.prologRights}, ${parsed.epFile}).\n\n`;
+      out += `% 2. Run constraints validation and query status:\n`;
+      out += `?- in_check(Board, ${parsed.turnColor}).\n`;
+      out += `% Output: ${summary.in_check}\n\n`;
+      out += `?- is_pinned(Board, ${parsed.turnColor}, PinPos).\n`;
+      out += `% Output: ${summary.pinned_pieces.length > 0 ? 'PinPos = ' + summary.pinned_pieces.join(", ") : 'false'}\n\n`;
+      out += `?- discovered_attack_candidate(Board, ${parsed.turnColor}, Blocker, Attacker, Target).\n`;
+      if (summary.discovered_attacks.length > 0) {
+        summary.discovered_attacks.forEach(da => {
+          out += `% Output: Blocker=${da.blocker}, Attacker=${da.attacker}, Target=${da.target}\n`;
+        });
+      } else {
+        out += `% Output: false\n`;
+      }
+      return out;
+    }
+
+    function generatePythonCode(fen) {
+      return `import queen
+
+fen = "${fen}"
+
+# Query the dynamic tactical summary
+summary = queen.get_tactical_summary(fen)
+
+# Check pins and discovered attack paths
+print("Pinned Pieces:", summary['pinned_pieces'])
+print("Discovered Attacks:", summary['discovered_attacks'])
+print("Material values:", summary['material_values'])
+print("Advantage:", summary['advantage'])`;
+    }
+
+    function generateMcpCode(fen) {
+      const payload = {
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: {
+          name: "get_tactical_summary",
+          arguments: {
+            fen: fen
+          }
+        },
+        id: 1
+      };
+      return JSON.stringify(payload, null, 2);
+    }
+
+    function generateSummaryCode(summary) {
+      return JSON.stringify(summary, null, 2);
+    }
+
+    function loadCustomFenInput() {
+      const input = document.getElementById('fen-input').value.trim();
+      if (!input) {
+        showStatus("Please enter a valid FEN string.", "error");
+        return;
+      }
+      
+      if (!engineReady) {
+        showStatus("Prolog constraints engine is still loading, please wait...", "error");
+        return;
+      }
+      
+      clearSelection();
+      clearStatus();
+      
+      const parsed = parseFenToPrologVars(input);
+      if (!parsed) {
+        showStatus("Malformed FEN string. Please check the format.", "error");
+        return;
+      }
+      
+      analyzeFen(input);
+      showStatus("Position analyzed successfully.", "success");
+    }
+
+    function showStatus(msg, type) {
+      const statusEl = document.getElementById('playground-status');
+      statusEl.textContent = msg;
+      statusEl.className = type;
+      statusEl.style.display = 'block';
+    }
+
+    function clearStatus() {
+      const statusEl = document.getElementById('playground-status');
+      statusEl.textContent = '';
+      statusEl.className = '';
+      statusEl.style.display = 'none';
+    }
+
+    // Initialize with first preset after booting the engine
+    initQueenEngine(
+      function() {
+        engineReady = true;
+        console.log("Prolog Engine Loaded.");
+        showStatus("Prolog constraints engine loaded in-browser. Click pieces to move or input a custom FEN below!", "success");
+        loadPreset('scholars');
+      },
+      function(err) {
+        console.error("Engine failed to load:", err);
+        showStatus("Prolog engine offline. Displaying static fallback data.", "error");
+        loadPreset('scholars');
+      }
+    );
   </script>
 </body>
 </html>

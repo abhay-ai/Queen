@@ -1,0 +1,422 @@
+import os
+
+def convert():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    prolog_path = os.path.join(current_dir, "queen.pl")
+    output_js_path = os.path.join(current_dir, "docs", "queen_engine.js")
+
+    if not os.path.exists(prolog_path):
+        print(f"Error: {prolog_path} not found.")
+        return
+
+    with open(prolog_path, "r", encoding="utf-8") as f:
+        prolog_content = f.read()
+
+    # 1. Replace between( with queen_between( and sum_list( with queen_sum_list( for Tau Prolog compatibility
+    # Make sure we only match the predicate calls, not text in comments or variable names
+    prolog_content = prolog_content.replace("between(", "queen_between(")
+    prolog_content = prolog_content.replace("sum_list(", "queen_sum_list(")
+
+    # 2. Append custom implementations of queen_between/3 and queen_sum_list/2
+    shims = """
+
+% =====================================================================
+% TAU PROLOG COMPATIBILITY SHIMS
+% =====================================================================
+
+queen_between(Low, High, Value) :-
+    Value = Low.
+queen_between(Low, High, Value) :-
+    Low < High,
+    Next is Low + 1,
+    queen_between(Next, High, Value).
+
+queen_sum_list([], 0).
+queen_sum_list([H|T], Sum) :-
+    queen_sum_list(T, Rest),
+    Sum is H + Rest.
+"""
+    prolog_content += shims
+
+    # 3. Escape backslashes and backticks for JS template literal safety
+    escaped_prolog = prolog_content.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
+
+    # 4. Generate the Javascript wrapper using simple replace to avoid f-string escaping pain
+    js_template = """// Queen Prolog Rulebase & JS Bridge for Browser Integration (Tau Prolog)
+// Automatically generated from queen.pl via convert_prolog.py
+
+const QUEEN_PROLOG_SOURCE = `
+{{RULES}}
+`;
+
+// FEN parser in Javascript to convert a chess FEN to Prolog state terms
+function parseFenToPrologVars(fen) {
+    const fileMap = {'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8};
+    const pieceMap = {'p': 'pawn', 'n': 'knight', 'b': 'bishop', 'r': 'rook', 'q': 'queen', 'k': 'king'};
+    
+    try {
+        const parts = fen.trim().split(/\\s+/);
+        if (parts.length === 0 || !parts[0]) return null;
+        
+        const ranks = parts[0].split('/');
+        const prologPieces = [];
+        
+        for (let rankIdx = 0; rankIdx < ranks.length; rankIdx++) {
+            const rankStr = ranks[rankIdx];
+            const prologRank = 8 - rankIdx;
+            let fileIdx = 1;
+            for (let i = 0; i < rankStr.length; i++) {
+                const char = rankStr[i];
+                if (/\\d/.test(char)) {
+                    fileIdx += parseInt(char, 10);
+                } else {
+                    const color = char === char.toUpperCase() ? 'white' : 'black';
+                    const type = pieceMap[char.toLowerCase()];
+                    prologPieces.push(`piece(${color},${type},${fileIdx}-${prologRank})`);
+                    fileIdx++;
+                }
+            }
+        }
+        
+        const prologBoard = "[" + prologPieces.join(",") + "]";
+        
+        let turnColor = "white";
+        if (parts.length > 1) {
+            turnColor = parts[1] === "w" ? "white" : "black";
+        }
+        
+        let prologRights = "[]";
+        if (parts.length > 2) {
+            const rightsStr = parts[2];
+            const rights = [];
+            if (rightsStr.includes('K')) rights.push('wk');
+            if (rightsStr.includes('Q')) rights.push('wq');
+            if (rightsStr.includes('k')) rights.push('bk');
+            if (rightsStr.includes('q')) rights.push('bq');
+            prologRights = "[" + rights.join(",") + "]";
+        }
+        
+        let epFile = "none";
+        if (parts.length > 3 && parts[3] !== '-') {
+            const epSquare = parts[3];
+            if (epSquare[0] in fileMap) {
+                epFile = fileMap[epSquare[0]];
+            }
+        }
+        
+        return {
+            prologBoard,
+            turnColor,
+            prologRights,
+            epFile,
+            term: `state(${prologBoard}, ${turnColor}, ${prologRights}, ${epFile})`
+        };
+    } catch (e) {
+        console.error("Error parsing FEN in JS:", e);
+        return null;
+    }
+}
+
+// Initialize Tau Prolog Session
+let plSession = null;
+let plLoaded = false;
+
+function initQueenEngine(onSuccess, onError) {
+    if (plLoaded) {
+        if (onSuccess) onSuccess();
+        return;
+    }
+    
+    try {
+        // Create session
+        plSession = pl.create(5000);
+        
+        // Consult rules
+        plSession.consult(QUEEN_PROLOG_SOURCE, {
+            success: function() {
+                plLoaded = true;
+                console.log("Queen Prolog Engine initialized successfully.");
+                if (onSuccess) onSuccess();
+            },
+            error: function(err) {
+                console.error("Tau Prolog consult error:", err);
+                if (onError) onError(err);
+            }
+        });
+    } catch (e) {
+        console.error("Failed to initialize Tau Prolog session:", e);
+        if (onError) onError(e);
+    }
+}
+
+// Helper function to query a single answer from Prolog
+function queryPrologSingle(queryStr, callback) {
+    if (!plLoaded) {
+        callback(null, "Engine not initialized");
+        return;
+    }
+    
+    plSession.query(queryStr, {
+        success: function() {
+            plSession.answers(function(answer) {
+                if (pl.type.is_answer(answer)) {
+                    callback(answer, null);
+                } else {
+                    callback(null, "No answers found");
+                }
+            });
+        },
+        error: function(err) {
+            callback(null, err);
+        }
+    });
+}
+
+// Helper function to query multiple answers from Prolog
+function queryPrologAll(queryStr, callback) {
+    if (!plLoaded) {
+        callback([], "Engine not initialized");
+        return;
+    }
+    
+    plSession.query(queryStr, {
+        success: function() {
+            const results = [];
+            function getNextAnswer() {
+                plSession.answers(function(answer) {
+                    if (pl.type.is_answer(answer)) {
+                        results.push(answer);
+                        getNextAnswer();
+                    } else {
+                        callback(results, null);
+                    }
+                });
+            }
+            getNextAnswer();
+        },
+        error: function(err) {
+            callback([], err);
+        }
+    });
+}
+
+// Convert Prolog term back to JS representation
+function termToJs(term) {
+    if (!term) return null;
+    if (term.args && term.args.length > 0) {
+        // Check for compound terms like X-Y
+        if (term.indicator === "-/2") {
+            return termToJs(term.args[0]) + "-" + termToJs(term.args[1]);
+        }
+        // Check for lists
+        if (term.indicator === "./2") {
+            const list = [];
+            let current = term;
+            while (current && current.indicator === "./2") {
+                list.push(termToJs(current.args[0]));
+                current = current.args[1];
+            }
+            return list;
+        }
+        // General compound term
+        return {
+            functor: term.id,
+            args: term.args.map(termToJs)
+        };
+    }
+    if (term.id === "[]") return [];
+    return term.id !== undefined ? term.id : term.value;
+}
+
+// Public bridge API matching python methods
+function jsCheckMoveDiagnostics(fen, moveUci, callback) {
+    if (moveUci.length < 4) {
+        callback(false, "Invalid move format");
+        return;
+    }
+    const fileMap = {'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8};
+    const fromSquare = moveUci.substring(0, 2);
+    const toSquare = moveUci.substring(2, 4);
+    
+    if (!(fromSquare[0] in fileMap) || !(toSquare[0] in fileMap)) {
+        callback(false, "Coordinates fall entirely outside the boundaries of the board.");
+        return;
+    }
+    
+    const parsed = parseFenToPrologVars(fen);
+    if (!parsed) {
+        callback(false, "Invalid FEN board state.");
+        return;
+    }
+    
+    const plFrom = `${fileMap[fromSquare[0]]}-${fromSquare[1]}`;
+    const plTo = `${fileMap[toSquare[0]]}-${toSquare[1]}`;
+    
+    const queryStr = `validate_and_explain(${parsed.term}, ${plFrom}, ${plTo}, Explanation).`;
+    
+    queryPrologSingle(queryStr, function(answer, err) {
+        if (err) {
+            callback(false, "Symbolic constraints exception: " + err);
+            return;
+        }
+        const plExplanation = termToJs(answer.lookup("Explanation"));
+        if (plExplanation === "SUCCESS") {
+            callback(true, "");
+        } else {
+            callback(false, plExplanation || "Move rejected by core constraint engine.");
+        }
+    });
+}
+
+function jsGetLegalMoves(fen, callback) {
+    const parsed = parseFenToPrologVars(fen);
+    if (!parsed) {
+        callback([]);
+        return;
+    }
+    
+    const queryStr = `legal_move(${parsed.term}, FromX-FromY, ToX-ToY, _).`;
+    const fileMapInv = {1: 'a', 2: 'b', 3: 'c', 4: 'd', 5: 'e', 6: 'f', 7: 'g', 8: 'h'};
+    
+    queryPrologAll(queryStr, function(answers, err) {
+        if (err) {
+            callback([]);
+            return;
+        }
+        const moves = new Set();
+        answers.forEach(ans => {
+            const fx = termToJs(ans.lookup("FromX"));
+            const fy = termToJs(ans.lookup("FromY"));
+            const tx = termToJs(ans.lookup("ToX"));
+            const ty = termToJs(ans.lookup("ToY"));
+            if (fx && fy && tx && ty) {
+                const uci = `${fileMapInv[fx]}${fy}${fileMapInv[tx]}${ty}`;
+                moves.add(uci);
+                // Handle promotions: in simple JS rendering, if pawn hits 8th/1st rank, generate all promotions
+                const boardStr = parsed.prologBoard;
+                const isWhitePawn = boardStr.includes(`piece(white,pawn,${fx}-${fy})`);
+                const isBlackPawn = boardStr.includes(`piece(black,pawn,${fx}-${fy})`);
+                if ((isWhitePawn && ty === 8) || (isBlackPawn && ty === 1)) {
+                    moves.add(uci + 'q');
+                    moves.add(uci + 'r');
+                    moves.add(uci + 'b');
+                    moves.add(uci + 'n');
+                }
+            }
+        });
+        callback(Array.from(moves).sort());
+    });
+}
+
+function jsGetTacticalSummary(fen, callback) {
+    const parsed = parseFenToPrologVars(fen);
+    if (!parsed) {
+        callback(null, "Invalid FEN");
+        return;
+    }
+    
+    const summary = {
+        in_check: false,
+        checking_pieces: [],
+        game_status: { status: "active", winner: null },
+        pinned_pieces: [],
+        threatened_pieces: [],
+        defended_pieces: [],
+        discovered_attacks: [],
+        forks: { existing: [], moves_creating_forks: [] },
+        material_values: { white: 0, black: 0 },
+        advantage: { color: "none", margin: 0 }
+    };
+    
+    const fileMapInv = {1: 'a', 2: 'b', 3: 'c', 4: 'd', 5: 'e', 6: 'f', 7: 'g', 8: 'h'};
+    function squareToAlgebraic(posStr) {
+        if (!posStr || !posStr.includes("-")) return posStr;
+        const [x, y] = posStr.split("-").map(Number);
+        return fileMapInv[x] + y;
+    }
+    
+    // Query 1: Pinned Pieces
+    const qPin = `is_pinned(${parsed.prologBoard}, ${parsed.turnColor}, PinPos).`;
+    queryPrologAll(qPin, function(ansPins) {
+        ansPins.forEach(ans => {
+            const pinStr = termToJs(ans.lookup("PinPos"));
+            if (pinStr) summary.pinned_pieces.push(squareToAlgebraic(pinStr));
+        });
+        
+        // Query 2: Game Status
+        const qStatus = `checkmate(${parsed.prologBoard}, ${parsed.turnColor}).`;
+        queryPrologSingle(qStatus, function(ansStatusCheckmate) {
+            if (ansStatusCheckmate) {
+                summary.game_status.status = "checkmate";
+                summary.game_status.winner = parsed.turnColor === "white" ? "black" : "white";
+            } else {
+                const qStalemate = `stalemate(${parsed.prologBoard}, ${parsed.turnColor}).`;
+                queryPrologSingle(qStalemate, function(ansStalemate) {
+                    if (ansStalemate) {
+                        summary.game_status.status = "stalemate";
+                    }
+                });
+            }
+            
+            // Query 3: Check check state
+            const qCheck = `in_check(${parsed.prologBoard}, ${parsed.turnColor}).`;
+            queryPrologSingle(qCheck, function(ansCheck) {
+                summary.in_check = !!ansCheck;
+                
+                // Query 4: Material Values
+                const qValWhite = `material_value(${parsed.prologBoard}, white, WVal).`;
+                queryPrologSingle(qValWhite, function(ansValW) {
+                    const wVal = termToJs(ansValW ? ansValW.lookup("WVal") : null) || 0;
+                    summary.material_values.white = wVal;
+                    
+                    const qValBlack = `material_value(${parsed.prologBoard}, black, BVal).`;
+                    queryPrologSingle(qValBlack, function(ansValB) {
+                        const bVal = termToJs(ansValB ? ansValB.lookup("BVal") : null) || 0;
+                        summary.material_values.black = bVal;
+                        
+                        const margin = wVal - bVal;
+                        if (margin > 0) {
+                            summary.advantage.color = "white";
+                            summary.advantage.margin = margin;
+                        } else if (margin < 0) {
+                            summary.advantage.color = "black";
+                            summary.advantage.margin = Math.abs(margin);
+                        }
+                        
+                        // Query 5: Discovered attacks
+                        const qDisc = `discovered_attack_candidate(${parsed.prologBoard}, ${parsed.turnColor}, BlockerPos, AttackerPos, TargetPos).`;
+                        queryPrologAll(qDisc, function(ansDisc) {
+                            ansDisc.forEach(ans => {
+                                const b = squareToAlgebraic(termToJs(ans.lookup("BlockerPos")));
+                                const a = squareToAlgebraic(termToJs(ans.lookup("AttackerPos")));
+                                const t = squareToAlgebraic(termToJs(ans.lookup("TargetPos")));
+                                summary.discovered_attacks.push({ blocker: b, attacker: a, target: t });
+                            });
+                            
+                            // Query 6: Forks
+                            const qFork = `is_fork(${parsed.prologBoard}, ${parsed.turnColor === "white" ? "black" : "white"}, AttackerPos, Targets).`;
+                            queryPrologAll(qFork, function(ansFork) {
+                                ansFork.forEach(ans => {
+                                    const attacker = squareToAlgebraic(termToJs(ans.lookup("AttackerPos")));
+                                    const targets = termToJs(ans.lookup("Targets")).map(squareToAlgebraic);
+                                    summary.forks.existing.push({ attacker, targets });
+                                });
+                                
+                                callback(summary, null);
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    });
+}
+""".replace("{{RULES}}", escaped_prolog)
+
+    with open(output_js_path, "w", encoding="utf-8") as f:
+        f.write(js_template)
+
+    print(f"Successfully converted queen.pl and wrote JavaScript wrapper to {output_js_path}.")
+
+if __name__ == "__main__":
+    convert()
