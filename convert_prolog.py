@@ -17,7 +17,25 @@ def convert():
     prolog_content = prolog_content.replace("between(", "queen_between(")
     prolog_content = prolog_content.replace("sum_list(", "queen_sum_list(")
 
-    # 2. Append custom implementations of queen_between/3 and queen_sum_list/2
+    # 2. Replace SWI-Prolog specific format/3 calls with simple unifications for Tau Prolog
+    prolog_content = prolog_content.replace(
+        'format(string(Reason), "Illegal Move: The starting square ~w is completely empty. There is no piece there to move.", [From])',
+        'Reason = "Illegal Move: The starting square is completely empty. There is no piece there to move."'
+    )
+    prolog_content = prolog_content.replace(
+        'format(string(Reason), "Illegal Move: You attempted to move the opponent\'s ~w on ~w. You are playing as ~w.", [PieceType, From, Turn])',
+        'Reason = "Illegal Move: You attempted to move the opponent\'s piece. It is not your turn."'
+    )
+    prolog_content = prolog_content.replace(
+        'format(string(Reason), "CRITICAL FAILURE: Your King is currently in CHECK! The path ~w to ~w is illegal because it fails to protect or move your King out of danger.", [From, To])',
+        'Reason = "CRITICAL FAILURE: Your King is currently in CHECK! This move fails to protect or move your King out of danger."'
+    )
+    prolog_content = prolog_content.replace(
+        'format(string(Reason), "Illegal geometric trajectory: A ~w cannot physically move to ~w under standard chess rules, or the path is blocked by another piece.", [PieceType, To])',
+        'Reason = "Illegal geometric trajectory: This piece cannot move to that square, or the path is blocked by another piece."'
+    )
+
+    # 3. Append custom implementations of queen_between/3, queen_sum_list/2, and forall/2
     shims = """
 
 % =====================================================================
@@ -35,13 +53,16 @@ queen_sum_list([], 0).
 queen_sum_list([H|T], Sum) :-
     queen_sum_list(T, Rest),
     Sum is H + Rest.
+
+% forall/2 shim for Tau Prolog
+forall(Cond, Action) :- \\+ (Cond, \\+ Action).
 """
     prolog_content += shims
 
-    # 3. Escape backslashes and backticks for JS template literal safety
+    # 4. Escape backslashes and backticks for JS template literal safety
     escaped_prolog = prolog_content.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
 
-    # 4. Generate the Javascript wrapper using simple replace to avoid f-string escaping pain
+    # 5. Generate the Javascript wrapper using simple replace to avoid f-string escaping pain
     js_template = """// Queen Prolog Rulebase & JS Bridge for Browser Integration (Tau Prolog)
 // Automatically generated from queen.pl via convert_prolog.py
 
@@ -129,7 +150,7 @@ function initQueenEngine(onSuccess, onError) {
     
     try {
         // Create session
-        plSession = pl.create(5000);
+        plSession = pl.create(10000);
         
         // Consult rules
         plSession.consult(QUEEN_PROLOG_SOURCE, {
@@ -292,7 +313,7 @@ function jsGetLegalMoves(fen, callback) {
             if (fx && fy && tx && ty) {
                 const uci = `${fileMapInv[fx]}${fy}${fileMapInv[tx]}${ty}`;
                 moves.add(uci);
-                // Handle promotions: in simple JS rendering, if pawn hits 8th/1st rank, generate all promotions
+                // Handle promotions
                 const boardStr = parsed.prologBoard;
                 const isWhitePawn = boardStr.includes(`piece(white,pawn,${fx}-${fy})`);
                 const isBlackPawn = boardStr.includes(`piece(black,pawn,${fx}-${fy})`);

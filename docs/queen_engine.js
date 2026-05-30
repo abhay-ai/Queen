@@ -189,24 +189,24 @@ validate_and_explain(State, From, To, "SUCCESS") :-
 % Failure Case 1: Moving from an empty square
 validate_and_explain(state(Board, _, _, _), From, _, Reason) :-
     \\+ member(piece(_, _, From), Board), !,
-    format(string(Reason), "Illegal Move: The starting square ~w is completely empty. There is no piece there to move.", [From]).
+    Reason = "Illegal Move: The starting square is completely empty. There is no piece there to move.".
 
 % Failure Case 2: Moving the opponent's piece
 validate_and_explain(state(Board, Turn, _, _), From, _, Reason) :-
     member(piece(Owner, PieceType, From), Board),
     Owner \\= Turn, !,
-    format(string(Reason), "Illegal Move: You attempted to move the opponent's ~w on ~w. You are playing as ~w.", [PieceType, From, Turn]).
+    Reason = "Illegal Move: You attempted to move the opponent's piece. It is not your turn.".
 
 % Failure Case 3: The King is in check and this move fails to resolve it
 validate_and_explain(State, From, To, Reason) :-
     is_in_check(State), % Assumes your file has an existing check-detection predicate
     \\+ legal_move(State, From, To, _), !,
-    format(string(Reason), "CRITICAL FAILURE: Your King is currently in CHECK! The path ~w to ~w is illegal because it fails to protect or move your King out of danger.", [From, To]).
+    Reason = "CRITICAL FAILURE: Your King is currently in CHECK! This move fails to protect or move your King out of danger.".
 
 % Failure Case 4: Standard geometric/structural rule violation
 validate_and_explain(state(Board, _, _, _), From, To, Reason) :-
     member(piece(_, PieceType, From), Board), !,
-    format(string(Reason), "Illegal geometric trajectory: A ~w cannot physically move to ~w under standard chess rules, or the path is blocked by another piece.", [PieceType, To]).
+    Reason = "Illegal geometric trajectory: This piece cannot move to that square, or the path is blocked by another piece.".
 
 
 % =====================================================================
@@ -594,6 +594,9 @@ queen_sum_list([H|T], Sum) :-
     queen_sum_list(T, Rest),
     Sum is H + Rest.
 
+% forall/2 shim for Tau Prolog
+forall(Cond, Action) :- \\+ (Cond, \\+ Action).
+
 `;
 
 // FEN parser in Javascript to convert a chess FEN to Prolog state terms
@@ -676,7 +679,7 @@ function initQueenEngine(onSuccess, onError) {
     
     try {
         // Create session
-        plSession = pl.create(5000);
+        plSession = pl.create(10000);
         
         // Consult rules
         plSession.consult(QUEEN_PROLOG_SOURCE, {
@@ -839,7 +842,7 @@ function jsGetLegalMoves(fen, callback) {
             if (fx && fy && tx && ty) {
                 const uci = `${fileMapInv[fx]}${fy}${fileMapInv[tx]}${ty}`;
                 moves.add(uci);
-                // Handle promotions: in simple JS rendering, if pawn hits 8th/1st rank, generate all promotions
+                // Handle promotions
                 const boardStr = parsed.prologBoard;
                 const isWhitePawn = boardStr.includes(`piece(white,pawn,${fx}-${fy})`);
                 const isBlackPawn = boardStr.includes(`piece(black,pawn,${fx}-${fy})`);

@@ -351,20 +351,20 @@
       background: none;
     }
 
-    #playground-status {
+    #sandbox-status {
       margin-top: 1rem;
       padding: 0.75rem;
       border-radius: 4px;
       font-size: 0.85rem;
       display: none;
     }
-    #playground-status.error {
+    #sandbox-status.error {
       display: block;
       background: rgba(248, 81, 73, 0.15);
       border: 1px solid var(--red);
       color: #ff7b72;
     }
-    #playground-status.success {
+    #sandbox-status.success {
       display: block;
       background: rgba(57, 211, 83, 0.15);
       border: 1px solid var(--cyan);
@@ -622,6 +622,7 @@
       <li><a href="#overview" class="active">Overview</a></li>
       <li><a href="#architecture">Architecture</a></li>
       <li><a href="#playground">Playground</a></li>
+      <li><a href="#sandbox">Live Sandbox</a></li>
       <li><a href="#usecase">Use Case (R_Daneel_AI)</a></li>
       <li><a href="#api">API Reference</a></li>
       <li><a href="#setup">Setup Guide</a></li>
@@ -700,14 +701,6 @@
             </select>
             <p class="playground-hint">👉 Click the dropdown to swap scenarios and watch the live data payload change across the stack.</p>
           </div>
-
-          <div class="preset-selector" style="margin-top: 1.5rem;">
-            <label for="fen-input">Or Input Custom FEN</label>
-            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-              <input type="text" id="fen-input" style="flex: 1; background: #0d1117; border: 1px solid var(--panel-border); color: var(--text-highlight); padding: 0.5rem; border-radius: 4px; font-family: var(--font-mono); font-size: 0.85rem;" placeholder="r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4">
-              <button onclick="loadCustomFenInput()" style="background: var(--accent); color: #0d1117; border: none; padding: 0.5rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer; transition: none;">Analyze</button>
-            </div>
-          </div>
           
           <div id="chessboard" class="chessboard"></div>
           
@@ -715,7 +708,6 @@
             <div id="fen-display" class="fen-display"></div>
             <button class="fen-copy-btn" onclick="copyFen()">Copy FEN</button>
           </div>
-          <div id="playground-status"></div>
         </div>
 
         <!-- Right Side: Code Tabs -->
@@ -755,6 +747,51 @@
           </div>
         </div>
 
+      </div>
+    </section>
+
+    <!-- Sandbox Section -->
+    <section id="sandbox">
+      <h2>Live FEN Sandbox</h2>
+      <p>Test your own FEN positions in real-time. This sandbox runs the actual Prolog constraint rules compiled into JavaScript directly in your browser. Click pieces to highlight legal moves, select highlighted squares to execute them, or input a custom FEN.</p>
+      
+      <div class="glass-card playground-container">
+        <!-- Left Side: Sandbox Chessboard & FEN Input -->
+        <div class="chessboard-wrapper">
+          <div class="preset-selector">
+            <label for="sandbox-fen-input">Custom FEN Input</label>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+              <input type="text" id="sandbox-fen-input" style="flex: 1; background: #0d1117; border: 1px solid var(--panel-border); color: var(--text-highlight); padding: 0.5rem; border-radius: 4px; font-family: var(--font-mono); font-size: 0.85rem;" value="r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4">
+              <button onclick="sandboxLoadFenInput()" style="background: var(--accent); color: #0d1117; border: none; padding: 0.5rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer; transition: none;">Analyze</button>
+            </div>
+          </div>
+          
+          <div id="sandbox-chessboard" class="chessboard"></div>
+          
+          <div class="fen-container">
+            <div id="sandbox-fen-display" class="fen-display" style="overflow-x: auto; white-space: nowrap;">r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4</div>
+            <button class="fen-copy-btn" onclick="sandboxCopyFen()">Copy FEN</button>
+          </div>
+          <div id="sandbox-status"></div>
+        </div>
+
+        <!-- Right Side: Sandbox Code Tabs -->
+        <div class="code-tabs">
+          <div class="tab-header" role="tablist" aria-label="Sandbox Outputs">
+            <button id="tab-sandbox-summary" class="tab-btn active" role="tab" aria-selected="true" aria-controls="sandbox-summary-code" onclick="switchSandboxTab(event, 'sandbox-summary-code')">Prolog Analysis Summary</button>
+            <button id="tab-sandbox-prolog" class="tab-btn" role="tab" aria-selected="false" aria-controls="sandbox-prolog-code" onclick="switchSandboxTab(event, 'sandbox-prolog-code')">Generated Prolog State</button>
+          </div>
+          
+          <div id="sandbox-summary-code" class="tab-content active" role="tabpanel" aria-labelledby="tab-sandbox-summary">
+            <button class="copy-btn" onclick="copyCode('sandbox-summary-pre')">Copy</button>
+            <pre id="sandbox-summary-pre">JSON Analysis Summary will appear here after engine finishes loading...</pre>
+          </div>
+          
+          <div id="sandbox-prolog-code" class="tab-content" role="tabpanel" aria-labelledby="tab-sandbox-prolog">
+            <button class="copy-btn" onclick="copyCode('sandbox-prolog-pre')">Copy</button>
+            <pre id="sandbox-prolog-pre">Generated Prolog board state will appear here...</pre>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -1608,8 +1645,9 @@ print("Discovered Attacks:", summary['discovered_attacks'])
     });
 
     // Chessboard rendering logic
-    function renderFen(fen, hPoints = {}) {
-      const boardEl = document.getElementById('chessboard');
+    function renderFen(fen, hPoints = {}, boardId = 'chessboard') {
+      const boardEl = document.getElementById(boardId);
+      if (!boardEl) return;
       boardEl.innerHTML = '';
       
       const parts = fen.trim().split(/\s+/);
@@ -1689,117 +1727,111 @@ print("Discovered Attacks:", summary['discovered_attacks'])
           sq.classList.add('has-piece');
         }
         
-        sq.addEventListener('click', () => handleSquareClick(coord));
+        if (boardId === 'sandbox-chessboard') {
+          sq.addEventListener('click', () => handleSandboxSquareClick(coord));
+        }
         boardEl.appendChild(sq);
       }
     }
 
-    // Load preset function
+    // Load preset function (always static, robust fallback)
     function loadPreset(key) {
       const preset = presets[key];
       if (!preset) return;
       
-      clearSelection();
-      clearStatus();
+      // Render main board statically
+      renderFen(preset.fen, preset.highlights, 'chessboard');
       
+      // Update FEN label
       document.getElementById('fen-display').textContent = preset.fen;
-      document.getElementById('fen-input').value = preset.fen;
-      currentFen = preset.fen;
       
-      if (engineReady) {
-        analyzeFen(preset.fen);
-      } else {
-        renderFen(preset.fen, preset.highlights);
-        document.getElementById('prolog-pre').textContent = preset.prolog;
-        document.getElementById('python-pre').textContent = preset.python;
-        document.getElementById('mcp-pre').textContent = preset.mcp;
-        document.getElementById('summary-pre').textContent = preset.summary;
-      }
+      // Update code pre blocks
+      document.getElementById('prolog-pre').textContent = preset.prolog;
+      document.getElementById('python-pre').textContent = preset.python;
+      document.getElementById('mcp-pre').textContent = preset.mcp;
+      document.getElementById('summary-pre').textContent = preset.summary;
     }
 
-    // Interactive Chessboard Logic & Tau Prolog Bridge
-    let selectedSquare = null;
-    let legalTargets = [];
-    let currentFen = "";
+    // Interactive Chessboard Logic & Tau Prolog Bridge for SANDBOX ONLY
+    let sandboxSelectedSquare = null;
+    let sandboxLegalTargets = [];
+    let sandboxCurrentFen = "";
     let engineReady = false;
 
-    function handleSquareClick(coord) {
+    function handleSandboxSquareClick(coord) {
       if (!engineReady) {
-        showStatus("Prolog constraints engine is still loading in browser...", "error");
+        showSandboxStatus("Prolog constraints engine is still loading in browser...", "error");
         return;
       }
       
-      clearStatus();
+      clearSandboxStatus();
       
-      if (legalTargets.includes(coord)) {
-        executeMove(selectedSquare, coord);
+      if (sandboxLegalTargets.includes(coord)) {
+        executeSandboxMove(sandboxSelectedSquare, coord);
         return;
       }
       
-      const sqEl = document.querySelector(`.square[data-coord="${coord}"]`);
+      const sqEl = document.querySelector(`#sandbox-chessboard .square[data-coord="${coord}"]`);
       const pieceEl = sqEl ? sqEl.querySelector('.piece') : null;
       
       if (pieceEl) {
         const isWhitePiece = pieceEl.classList.contains('white-piece');
-        const activeColor = currentFen.split(" ")[1] || "w";
+        const activeColor = sandboxCurrentFen.split(" ")[1] || "w";
         const isMyPiece = (activeColor === "w" && isWhitePiece) || (activeColor === "b" && !isWhitePiece);
         
         if (isMyPiece) {
-          selectedSquare = coord;
-          highlightSelection(coord);
+          sandboxSelectedSquare = coord;
+          highlightSandboxSelection(coord);
           return;
         }
       }
       
-      if (selectedSquare && selectedSquare !== coord) {
-        const moveUci = selectedSquare + coord;
-        jsCheckMoveDiagnostics(currentFen, moveUci, function(legal, explanation) {
+      if (sandboxSelectedSquare && sandboxSelectedSquare !== coord) {
+        const moveUci = sandboxSelectedSquare + coord;
+        jsCheckMoveDiagnostics(sandboxCurrentFen, moveUci, function(legal, explanation) {
           if (!legal) {
-            showStatus(`Illegal Move (${moveUci.toUpperCase()}): ${explanation}`, "error");
+            showSandboxStatus(`Illegal Move (${moveUci.toUpperCase()}): ${explanation}`, "error");
           }
         });
       }
       
-      clearSelection();
+      clearSandboxSelection();
     }
 
-    function highlightSelection(coord) {
-      document.querySelectorAll('.square').forEach(sq => {
+    function highlightSandboxSelection(coord) {
+      document.querySelectorAll('#sandbox-chessboard .square').forEach(sq => {
         sq.classList.remove('selected', 'legal-target');
       });
       
-      const sqEl = document.querySelector(`.square[data-coord="${coord}"]`);
+      const sqEl = document.querySelector(`#sandbox-chessboard .square[data-coord="${coord}"]`);
       if (sqEl) sqEl.classList.add('selected');
       
-      jsGetLegalMoves(currentFen, function(moves) {
-        legalTargets = [];
+      jsGetLegalMoves(sandboxCurrentFen, function(moves) {
+        sandboxLegalTargets = [];
         moves.forEach(move => {
           if (move.substring(0, 2) === coord) {
             const target = move.substring(2, 4);
-            legalTargets.push(target);
-            const targetEl = document.querySelector(`.square[data-coord="${target}"]`);
+            sandboxLegalTargets.push(target);
+            const targetEl = document.querySelector(`#sandbox-chessboard .square[data-coord="${target}"]`);
             if (targetEl) {
               targetEl.classList.add('legal-target');
-              if (targetEl.classList.contains('has-piece')) {
-                targetEl.classList.add('has-piece'); // ensures style triggers
-              }
             }
           }
         });
       });
     }
 
-    function clearSelection() {
-      selectedSquare = null;
-      legalTargets = [];
-      document.querySelectorAll('.square').forEach(sq => {
+    function clearSandboxSelection() {
+      sandboxSelectedSquare = null;
+      sandboxLegalTargets = [];
+      document.querySelectorAll('#sandbox-chessboard .square').forEach(sq => {
         sq.classList.remove('selected', 'legal-target');
       });
     }
 
-    function executeMove(from, to) {
+    function executeSandboxMove(from, to) {
       const fileMap = {'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8};
-      const parsed = parseFenToPrologVars(currentFen);
+      const parsed = parseFenToPrologVars(sandboxCurrentFen);
       
       const plFrom = `${fileMap[from[0]]}-${from[1]}`;
       const plTo = `${fileMap[to[0]]}-${to[1]}`;
@@ -1808,8 +1840,8 @@ print("Discovered Attacks:", summary['discovered_attacks'])
       
       queryPrologSingle(queryStr, function(answer, err) {
         if (err) {
-          showStatus("Failed to execute move: " + err, "error");
-          clearSelection();
+          showSandboxStatus("Failed to execute move: " + err, "error");
+          clearSandboxSelection();
           return;
         }
         
@@ -1819,8 +1851,8 @@ print("Discovered Attacks:", summary['discovered_attacks'])
         const newEP = termToJs(answer.lookup("NewEP"));
         
         const nextFen = prologStateToFen(newBoard, newColor, newRights, newEP);
-        analyzeFen(nextFen);
-        clearSelection();
+        sandboxAnalyzeFen(nextFen);
+        clearSandboxSelection();
       });
     }
 
@@ -1890,20 +1922,20 @@ print("Discovered Attacks:", summary['discovered_attacks'])
       return `${boardFen} ${activeColor} ${rightsStr} ${epStr} 0 1`;
     }
 
-    function analyzeFen(fen) {
-      currentFen = fen;
-      document.getElementById('fen-input').value = fen;
-      document.getElementById('fen-display').textContent = fen;
+    function sandboxAnalyzeFen(fen) {
+      sandboxCurrentFen = fen;
+      document.getElementById('sandbox-fen-input').value = fen;
+      document.getElementById('sandbox-fen-display').textContent = fen;
       
       jsGetTacticalSummary(fen, function(summary, err) {
         if (err) {
-          showStatus("Error analyzing position: " + err, "error");
+          showSandboxStatus("Error analyzing position: " + err, "error");
           return;
         }
         
         const hPoints = getHighlightsFromSummary(summary, fen);
-        renderFen(fen, hPoints);
-        updateCodeTabs(fen, summary);
+        renderFen(fen, hPoints, 'sandbox-chessboard');
+        updateSandboxCodeTabs(fen, summary);
       });
     }
 
@@ -1947,14 +1979,12 @@ print("Discovered Attacks:", summary['discovered_attacks'])
       return highlights;
     }
 
-    function updateCodeTabs(fen, summary) {
-      document.getElementById('prolog-pre').textContent = generatePrologCode(fen, summary);
-      document.getElementById('python-pre').textContent = generatePythonCode(fen);
-      document.getElementById('mcp-pre').textContent = generateMcpCode(fen);
-      document.getElementById('summary-pre').textContent = generateSummaryCode(summary);
+    function updateSandboxCodeTabs(fen, summary) {
+      document.getElementById('sandbox-prolog-pre').textContent = generateSandboxPrologCode(fen, summary);
+      document.getElementById('sandbox-summary-pre').textContent = JSON.stringify(summary, null, 2);
     }
 
-    function generatePrologCode(fen, summary) {
+    function generateSandboxPrologCode(fen, summary) {
       const parsed = parseFenToPrologVars(fen);
       if (!parsed) return "% Invalid FEN";
       
@@ -1985,91 +2015,86 @@ print("Discovered Attacks:", summary['discovered_attacks'])
       return out;
     }
 
-    function generatePythonCode(fen) {
-      return `import queen
-
-fen = "${fen}"
-
-# Query the dynamic tactical summary
-summary = queen.get_tactical_summary(fen)
-
-# Check pins and discovered attack paths
-print("Pinned Pieces:", summary['pinned_pieces'])
-print("Discovered Attacks:", summary['discovered_attacks'])
-print("Material values:", summary['material_values'])
-print("Advantage:", summary['advantage'])`;
-    }
-
-    function generateMcpCode(fen) {
-      const payload = {
-        jsonrpc: "2.0",
-        method: "tools/call",
-        params: {
-          name: "get_tactical_summary",
-          arguments: {
-            fen: fen
-          }
-        },
-        id: 1
-      };
-      return JSON.stringify(payload, null, 2);
-    }
-
-    function generateSummaryCode(summary) {
-      return JSON.stringify(summary, null, 2);
-    }
-
-    function loadCustomFenInput() {
-      const input = document.getElementById('fen-input').value.trim();
+    function sandboxLoadFenInput() {
+      const input = document.getElementById('sandbox-fen-input').value.trim();
       if (!input) {
-        showStatus("Please enter a valid FEN string.", "error");
+        showSandboxStatus("Please enter a valid FEN string.", "error");
         return;
       }
       
       if (!engineReady) {
-        showStatus("Prolog constraints engine is still loading, please wait...", "error");
+        showSandboxStatus("Prolog constraints engine is still loading, please wait...", "error");
         return;
       }
       
-      clearSelection();
-      clearStatus();
+      clearSandboxSelection();
+      clearSandboxStatus();
       
       const parsed = parseFenToPrologVars(input);
       if (!parsed) {
-        showStatus("Malformed FEN string. Please check the format.", "error");
+        showSandboxStatus("Malformed FEN string. Please check the format.", "error");
         return;
       }
       
-      analyzeFen(input);
-      showStatus("Position analyzed successfully.", "success");
+      sandboxAnalyzeFen(input);
+      showSandboxStatus("Position analyzed successfully.", "success");
     }
 
-    function showStatus(msg, type) {
-      const statusEl = document.getElementById('playground-status');
+    function sandboxCopyFen() {
+      const fenText = document.getElementById('sandbox-fen-display').textContent;
+      navigator.clipboard.writeText(fenText).then(() => {
+        const btn = document.querySelector('#sandbox .fen-copy-btn');
+        const originalText = btn.textContent;
+        btn.textContent = "Copied!";
+        btn.style.color = "var(--cyan)";
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.color = "var(--text-muted)";
+        }, 1500);
+      });
+    }
+
+    function switchSandboxTab(evt, tabId) {
+      const container = evt.currentTarget.closest('.code-tabs');
+      container.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-selected', 'false');
+      });
+      container.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      evt.currentTarget.classList.add('active');
+      evt.currentTarget.setAttribute('aria-selected', 'true');
+      container.querySelector('#' + tabId).classList.add('active');
+    }
+
+    function showSandboxStatus(msg, type) {
+      const statusEl = document.getElementById('sandbox-status');
       statusEl.textContent = msg;
       statusEl.className = type;
       statusEl.style.display = 'block';
     }
 
-    function clearStatus() {
-      const statusEl = document.getElementById('playground-status');
+    function clearSandboxStatus() {
+      const statusEl = document.getElementById('sandbox-status');
       statusEl.textContent = '';
       statusEl.className = '';
       statusEl.style.display = 'none';
     }
 
-    // Initialize with first preset after booting the engine
+    // Initialize main preset (static)
+    loadPreset('scholars');
+
+    // Initialize Sandbox & Prolog Engine
     initQueenEngine(
       function() {
         engineReady = true;
-        console.log("Prolog Engine Loaded.");
-        showStatus("Prolog constraints engine loaded in-browser. Click pieces to move or input a custom FEN below!", "success");
-        loadPreset('scholars');
+        console.log("Prolog Sandbox Engine Loaded.");
+        showSandboxStatus("Prolog constraints engine loaded in-browser. Paste any FEN or click pieces to test legality!", "success");
+        sandboxAnalyzeFen("r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4");
       },
       function(err) {
-        console.error("Engine failed to load:", err);
-        showStatus("Prolog engine offline. Displaying static fallback data.", "error");
-        loadPreset('scholars');
+        console.error("Sandbox engine failed to load:", err);
+        showSandboxStatus("Failed to initialize Prolog engine in-browser: " + err, "error");
       }
     );
   </script>
