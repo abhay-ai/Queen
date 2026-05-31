@@ -268,7 +268,8 @@ is_defended(Board, Color, X-Y) :-
     member(piece(Color, PieceType, PiecePos), Board),
     PiecePos \== X-Y,
     opponent(Color, Enemy),
-    TempBoard = [piece(Enemy, pawn, X-Y) | Board],
+    (select(piece(Color, _, X-Y), Board, CleanBoard) -> true ; CleanBoard = Board),
+    TempBoard = [piece(Enemy, pawn, X-Y) | CleanBoard],
     move_piece(PieceType, TempBoard, none, PiecePos, X-Y).
 
 % A piece at PiecePos of Color is pinned if removing it puts Color's King in check.
@@ -320,6 +321,55 @@ is_fork(Board, Color, ForkerPos, EnemyPos1, EnemyPos2) :-
     member(piece(Enemy, _Type2, EnemyPos2), Board),
     EnemyPos1 @< EnemyPos2,
     move_piece(ForkerType, Board, none, ForkerPos, EnemyPos2).
+
+% Classify the safety and tactical value of a fork
+fork_status(Board, Color, ForkerPos, EnemyPos1, EnemyPos2, Status) :-
+    % 1. Attacker safety check
+    (is_attacked(Board, Color, ForkerPos) ->
+        (is_defended(Board, Color, ForkerPos) ->
+            AttackerStatus = defended
+        ;
+            AttackerStatus = hanging
+        )
+    ;
+        AttackerStatus = safe
+    ),
+    
+    % 2. Targets defense check
+    opponent(Color, Enemy),
+    (is_defended(Board, Enemy, EnemyPos1) -> T1Def = defended ; T1Def = undefended),
+    (is_defended(Board, Enemy, EnemyPos2) -> T2Def = defended ; T2Def = undefended),
+    
+    % 3. Check values of targets and attacker to determine tactical value
+    member(piece(Color, ForkerType, ForkerPos), Board),
+    member(piece(Enemy, T1Type, EnemyPos1), Board),
+    member(piece(Enemy, T2Type, EnemyPos2), Board),
+    piece_value(ForkerType, ForkerVal),
+    piece_value(T1Type, T1Val),
+    piece_value(T2Type, T2Val),
+    
+    % Determine status
+    (AttackerStatus == hanging ->
+        (T1Val > ForkerVal ; T2Val > ForkerVal ->
+            Status = winning_sacrifice
+        ;
+            Status = unsafe_attacker_hangs
+        )
+    ;
+        (T1Def == undefended ->
+            Status = winning_fork
+        ;
+            (T2Def == undefended ->
+                Status = winning_fork
+            ;
+                (T1Val > ForkerVal ; T2Val > ForkerVal ->
+                    Status = winning_trade
+                ;
+                    Status = defended_trade
+                )
+            )
+        )
+    ).
 
 % A move From -> To creates a fork on EnemyPos1 and EnemyPos2.
 creates_fork(state(Board, Color, Rights, EP), From, To, EnemyPos1, EnemyPos2) :-

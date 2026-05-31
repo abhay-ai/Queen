@@ -334,17 +334,21 @@ def get_forks(fen: str) -> dict:
     prolog_board, turn_color, prolog_rights, ep_file = state_vars
     
     # 1. Existing forks
-    forks_query = f"is_fork({prolog_board}, {turn_color}, ForkerX-ForkerY, Target1X-Target1Y, Target2X-Target2Y)"
+    forks_query = f"is_fork({prolog_board}, {turn_color}, ForkerX-ForkerY, Target1X-Target1Y, Target2X-Target2Y), fork_status({prolog_board}, {turn_color}, ForkerX-ForkerY, Target1X-Target1Y, Target2X-Target2Y, Status)"
     existing_forks = []
     try:
         results = list(prolog.query(forks_query))
         for r in results:
+            status = r['Status']
+            if isinstance(status, bytes):
+                status = status.decode('utf-8')
             existing_forks.append({
                 "forker": f"{file_map_inv[r['ForkerX']]}{r['ForkerY']}",
                 "targets": [
                     f"{file_map_inv[r['Target1X']]}{r['Target1Y']}",
                     f"{file_map_inv[r['Target2X']]}{r['Target2Y']}"
-                ]
+                ],
+                "status": status
             })
     except Exception as e:
         print(f"Error querying existing forks: {e}")

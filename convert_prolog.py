@@ -91,7 +91,7 @@ js_tactical_summary(Board, Color, Rights, EP, GameStatus, InCheck, Checking, Pin
     findall(da(Blocker, Attacker, Target), discovered_attack_candidate(Board, Color, Blocker, Attacker, Target), Discovered),
     % 8. Forks
     opponent(Color, Enemy),
-    findall(fork(Forker, Target1, Target2), is_fork(Board, Enemy, Forker, Target1, Target2), Forks),
+    findall(fork(Forker, Target1, Target2, ForkStatus), (is_fork(Board, Enemy, Forker, Target1, Target2), fork_status(Board, Enemy, Forker, Target1, Target2, ForkStatus)), Forks),
     % 9. Material values
     (material_value(Board, white, WVal) -> true ; WVal = 0),
     (material_value(Board, black, BVal) -> true ; BVal = 0).
@@ -434,7 +434,8 @@ function jsGetTacticalSummary(fen, callback) {
             const forks = {
                 existing: forksRaw.map(f => ({
                     attacker: squareToAlgebraic(f.args[0]),
-                    targets: [squareToAlgebraic(f.args[1]), squareToAlgebraic(f.args[2])]
+                    targets: [squareToAlgebraic(f.args[1]), squareToAlgebraic(f.args[2])],
+                    status: f.args[3]
                 })),
                 moves_creating_forks: []
             };
