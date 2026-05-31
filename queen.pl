@@ -16,6 +16,47 @@ dir(rook, 1, 0).  dir(rook, -1, 0).  dir(rook, 0, 1).  dir(rook, 0, -1).
 dir(bishop, 1, 1). dir(bishop, 1, -1). dir(bishop, -1, 1). dir(bishop, -1, -1).
 dir(queen, DX, DY) :- dir(rook, DX, DY) ; dir(bishop, DX, DY).
 
+aligned(rook, StartX-StartY, EndX-EndY, DX, DY) :-
+    (StartX =:= EndX -> DX = 0, (EndY > StartY -> DY = 1 ; DY = -1) ;
+     StartY =:= EndY -> DY = 0, (EndX > StartX -> DX = 1 ; DX = -1)).
+
+aligned(bishop, StartX-StartY, EndX-EndY, DX, DY) :-
+    XDiff is EndX - StartX, YDiff is EndY - StartY,
+    abs(XDiff) =:= abs(YDiff),
+    (XDiff > 0 -> DX = 1 ; DX = -1),
+    (YDiff > 0 -> DY = 1 ; DY = -1).
+
+aligned(queen, Start, End, DX, DY) :-
+    aligned(rook, Start, End, DX, DY) ; aligned(bishop, Start, End, DX, DY).
+
+% Generator for candidate target squares (very fast alternative to on_board/1 loop)
+candidate_target(pawn, _, X-Y, TX-TY) :-
+    (TX = X, (TY is Y + 1 ; TY is Y + 2 ; TY is Y - 1 ; TY is Y - 2)) ;
+    ((TX is X + 1 ; TX is X - 1), (TY is Y + 1 ; TY is Y - 1)).
+
+candidate_target(knight, _, X-Y, TX-TY) :-
+    member(DX-DY, [1-2, 1-(-2), -1-2, -1-(-2), 2-1, 2-(-2), -2-1, -2-(-2)]),
+    TX is X + DX, TY is Y + DY.
+
+candidate_target(king, _, X-Y, TX-TY) :-
+    member(DX-DY, [1-0, -1-0, 0-1, 0-(-1), 1-1, 1-(-1), -1-1, -1-(-1)]),
+    TX is X + DX, TY is Y + DY.
+
+candidate_target(Type, Board, Start, End) :-
+    member(Type, [rook, bishop, queen]),
+    dir(Type, DX, DY),
+    valid_path_squares(Board, Start, DX, DY, End).
+
+valid_path_squares(Board, StartX-StartY, DX, DY, EndX-EndY) :-
+    NextX is StartX + DX, NextY is StartY + DY,
+    on_board(NextX-NextY),
+    (
+        EndX = NextX, EndY = NextY
+        ;
+        empty(Board, NextX-NextY),
+        valid_path_squares(Board, NextX-NextY, DX, DY, EndX-EndY)
+    ).
+
 % =====================================================================
 % 2. CORE PIECE LOGIC (move_piece/5)
 % =====================================================================
@@ -60,7 +101,12 @@ move_piece(king, Board, _, StartX-StartY, EndX-EndY) :-
 % Sliding Pieces
 move_piece(Type, Board, _, Start, End) :-
     member(Type, [rook, bishop, queen]), occupied(Board, Start, Color, Type),
-    dir(Type, DX, DY), valid_path(Board, Start, End, DX, DY, Color).
+    (ground(End) ->
+        aligned(Type, Start, End, DX, DY)
+    ;
+        dir(Type, DX, DY)
+    ),
+    valid_path(Board, Start, End, DX, DY, Color).
 
 valid_path(Board, StartX-StartY, EndX-EndY, DX, DY, OurColor) :-
     NextX is StartX + DX, NextY is StartY + DY, on_board(NextX-NextY),
@@ -118,8 +164,9 @@ is_in_check(state(Board, Color, _, _)) :- in_check(Board, Color).
 
 % Entry Point 1: Standard Movement Validation
 legal_move(state(Board, Color, Rights, EP), From, To, state(NewBoard, NextColor, NewRights, NewEP)) :-
-    on_board(From), on_board(To),
     occupied(Board, From, Color, Type),
+    (ground(To) -> true ; candidate_target(Type, Board, From, To)),
+    on_board(To),
     move_piece(Type, Board, EP, From, To),
     execute_standard_move(Board, EP, From, To, NewBoard),
     \+ in_check(NewBoard, Color),
@@ -255,11 +302,12 @@ discovered_attack_candidate(Board, Color, BlockerPos, AttackerPos, TargetPos) :-
     member(AttackerType, [rook, bishop, queen]),
     opponent(Color, Enemy),
     member(piece(Enemy, _TargetType, TargetPos), Board),
+    aligned(AttackerType, AttackerPos, TargetPos, DX, DY),
+    \+ move_piece(AttackerType, Board, none, AttackerPos, TargetPos),
     member(piece(Color, BlockerType, BlockerPos), Board),
     BlockerPos \== AttackerPos, BlockerPos \== TargetPos,
-    % If Blocker is on board, no direct attack
-    \+ move_piece(AttackerType, Board, none, AttackerPos, TargetPos),
-    % If Blocker is removed, attack is possible
+    aligned(AttackerType, AttackerPos, BlockerPos, DX, DY),
+    aligned(AttackerType, BlockerPos, TargetPos, DX, DY),
     select(piece(Color, BlockerType, BlockerPos), Board, CleanBoard),
     move_piece(AttackerType, CleanBoard, none, AttackerPos, TargetPos).
 
@@ -268,9 +316,9 @@ is_fork(Board, Color, ForkerPos, EnemyPos1, EnemyPos2) :-
     member(piece(Color, ForkerType, ForkerPos), Board),
     opponent(Color, Enemy),
     member(piece(Enemy, _Type1, EnemyPos1), Board),
-    member(piece(Enemy, _Type2, EnemyPos2), Board),
-    EnemyPos1 @< EnemyPos2, % Force ordering to prevent duplicate swaps (e.g. pos1/pos2 and pos2/pos1)
     move_piece(ForkerType, Board, none, ForkerPos, EnemyPos1),
+    member(piece(Enemy, _Type2, EnemyPos2), Board),
+    EnemyPos1 @< EnemyPos2,
     move_piece(ForkerType, Board, none, ForkerPos, EnemyPos2).
 
 % A move From -> To creates a fork on EnemyPos1 and EnemyPos2.

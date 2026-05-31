@@ -367,6 +367,12 @@
     #sandbox-status.success {
       display: block;
       background: rgba(57, 211, 83, 0.15);
+      border: 1px solid #39d353;
+      color: #39d353;
+    }
+    #sandbox-status.info {
+      display: block;
+      background: rgba(121, 192, 255, 0.15);
       border: 1px solid var(--cyan);
       color: #79c0ff;
     }
@@ -1927,12 +1933,15 @@ print("Discovered Attacks:", summary['discovered_attacks'])
       document.getElementById('sandbox-fen-input').value = fen;
       document.getElementById('sandbox-fen-display').textContent = fen;
       
+      showSandboxStatus("Analyzing position using Prolog symbolic constraints engine (this may take a few seconds)...", "info");
+      
       jsGetTacticalSummary(fen, function(summary, err) {
         if (err) {
           showSandboxStatus("Error analyzing position: " + err, "error");
           return;
         }
         
+        showSandboxStatus("Position analyzed successfully.", "success");
         const hPoints = getHighlightsFromSummary(summary, fen);
         renderFen(fen, hPoints, 'sandbox-chessboard');
         updateSandboxCodeTabs(fen, summary);

@@ -35,7 +35,7 @@ def convert():
         'Reason = "Illegal geometric trajectory: This piece cannot move to that square, or the path is blocked by another piece."'
     )
 
-    # 3. Append custom implementations of queen_between/3, queen_sum_list/2, and forall/2
+    # 3. Append custom implementations of queen_between/3, queen_sum_list/2, forall/2, and bridge utilities
     shims = """
 
 % =====================================================================
@@ -56,6 +56,45 @@ queen_sum_list([H|T], Sum) :-
 
 % forall/2 shim for Tau Prolog
 forall(Cond, Action) :- \\+ (Cond, \\+ Action).
+
+% delete/3 shim for Tau Prolog
+delete([], _, []).
+delete([X|T], X, Out) :- !, delete(T, X, Out).
+delete([H|T], X, [H|Out]) :- delete(T, X, Out).
+
+find_checking_pieces(Board, Color, Checking) :-
+    (member(piece(Color, king, KingPos), Board) ->
+        opponent(Color, Enemy),
+        findall(piece(Enemy, EnemyType, EnemyPos), (
+            member(piece(Enemy, EnemyType, EnemyPos), Board),
+            move_piece(EnemyType, Board, none, EnemyPos, KingPos)
+        ), Checking)
+    ;
+        Checking = []
+    ).
+
+js_tactical_summary(Board, Color, Rights, EP, GameStatus, InCheck, Checking, Pins, Threats, Defended, Discovered, Forks, WVal, BVal) :-
+    % 1. Game status
+    (game_status(state(Board, Color, Rights, EP), status(Status, Winner)) -> GameStatus = status(Status, Winner) ; GameStatus = status(active, none)),
+    % 2. Check state
+    (in_check(Board, Color) -> InCheck = true ; InCheck = false),
+    % 3. Checking pieces
+    find_checking_pieces(Board, Color, Checking),
+    % 4. Pinned pieces
+    find_pinned_pieces(Board, Color, PinnedTerms),
+    findall(Pos, member(piece(_, _, Pos), PinnedTerms), Pins),
+    % 5. Threatened pieces
+    find_threats(Board, Color, Threats),
+    % 6. Defended pieces
+    find_defended_pieces(Board, Color, Defended),
+    % 7. Discovered Attacks
+    findall(da(Blocker, Attacker, Target), discovered_attack_candidate(Board, Color, Blocker, Attacker, Target), Discovered),
+    % 8. Forks
+    opponent(Color, Enemy),
+    findall(fork(Forker, Target1, Target2), is_fork(Board, Enemy, Forker, Target1, Target2), Forks),
+    % 9. Material values
+    (material_value(Board, white, WVal) -> true ; WVal = 0),
+    (material_value(Board, black, BVal) -> true ; BVal = 0).
 """
     prolog_content += shims
 
@@ -150,7 +189,7 @@ function initQueenEngine(onSuccess, onError) {
     
     try {
         // Create session
-        plSession = pl.create(10000);
+        plSession = pl.create(1000000);
         
         // Consult rules
         plSession.consult(QUEEN_PROLOG_SOURCE, {
@@ -179,9 +218,11 @@ function queryPrologSingle(queryStr, callback) {
     
     plSession.query(queryStr, {
         success: function() {
-            plSession.answers(function(answer) {
-                if (pl.type.is_answer(answer)) {
+            plSession.answer(function(answer) {
+                if (pl.type.is_substitution(answer)) {
                     callback(answer, null);
+                } else if (pl.type.is_error(answer)) {
+                    callback(null, answer);
                 } else {
                     callback(null, "No answers found");
                 }
@@ -205,7 +246,7 @@ function queryPrologAll(queryStr, callback) {
             const results = [];
             function getNextAnswer() {
                 plSession.answers(function(answer) {
-                    if (pl.type.is_answer(answer)) {
+                    if (pl.type.is_substitution(answer)) {
                         results.push(answer);
                         getNextAnswer();
                     } else {
@@ -336,100 +377,98 @@ function jsGetTacticalSummary(fen, callback) {
         return;
     }
     
-    const summary = {
-        in_check: false,
-        checking_pieces: [],
-        game_status: { status: "active", winner: null },
-        pinned_pieces: [],
-        threatened_pieces: [],
-        defended_pieces: [],
-        discovered_attacks: [],
-        forks: { existing: [], moves_creating_forks: [] },
-        material_values: { white: 0, black: 0 },
-        advantage: { color: "none", margin: 0 }
-    };
+    const queryStr = `js_tactical_summary(${parsed.prologBoard}, ${parsed.turnColor}, ${parsed.prologRights}, ${parsed.epFile}, GameStatus, InCheck, Checking, Pins, Threats, Defended, Discovered, Forks, WVal, BVal).`;
     
-    const fileMapInv = {1: 'a', 2: 'b', 3: 'c', 4: 'd', 5: 'e', 6: 'f', 7: 'g', 8: 'h'};
-    function squareToAlgebraic(posStr) {
-        if (!posStr || !posStr.includes("-")) return posStr;
-        const [x, y] = posStr.split("-").map(Number);
-        return fileMapInv[x] + y;
-    }
-    
-    // Query 1: Pinned Pieces
-    const qPin = `is_pinned(${parsed.prologBoard}, ${parsed.turnColor}, PinPos).`;
-    queryPrologAll(qPin, function(ansPins) {
-        ansPins.forEach(ans => {
-            const pinStr = termToJs(ans.lookup("PinPos"));
-            if (pinStr) summary.pinned_pieces.push(squareToAlgebraic(pinStr));
-        });
+    queryPrologSingle(queryStr, function(answer, err) {
+        if (err) {
+            callback(null, err);
+            return;
+        }
+        if (!answer) {
+            callback(null, "No answer from Prolog engine");
+            return;
+        }
         
-        // Query 2: Game Status
-        const qStatus = `checkmate(${parsed.prologBoard}, ${parsed.turnColor}).`;
-        queryPrologSingle(qStatus, function(ansStatusCheckmate) {
-            if (ansStatusCheckmate) {
-                summary.game_status.status = "checkmate";
-                summary.game_status.winner = parsed.turnColor === "white" ? "black" : "white";
-            } else {
-                const qStalemate = `stalemate(${parsed.prologBoard}, ${parsed.turnColor}).`;
-                queryPrologSingle(qStalemate, function(ansStalemate) {
-                    if (ansStalemate) {
-                        summary.game_status.status = "stalemate";
-                    }
-                });
+        try {
+            const gameStatusTerm = termToJs(answer.lookup("GameStatus"));
+            const inCheck = termToJs(answer.lookup("InCheck")) === "true";
+            const checkingRaw = termToJs(answer.lookup("Checking")) || [];
+            const pinsRaw = termToJs(answer.lookup("Pins")) || [];
+            const threatenedRaw = termToJs(answer.lookup("Threats")) || [];
+            const defendedRaw = termToJs(answer.lookup("Defended")) || [];
+            const discoveredRaw = termToJs(answer.lookup("Discovered")) || [];
+            const forksRaw = termToJs(answer.lookup("Forks")) || [];
+            const wVal = Number(termToJs(answer.lookup("WVal")) || 0);
+            const bVal = Number(termToJs(answer.lookup("BVal")) || 0);
+            
+            const fileMapInv = {1: 'a', 2: 'b', 3: 'c', 4: 'd', 5: 'e', 6: 'f', 7: 'g', 8: 'h'};
+            function squareToAlgebraic(posStr) {
+                if (!posStr || !posStr.includes("-")) return posStr;
+                const [x, y] = posStr.split("-").map(Number);
+                return fileMapInv[x] + y;
             }
             
-            // Query 3: Check check state
-            const qCheck = `in_check(${parsed.prologBoard}, ${parsed.turnColor}).`;
-            queryPrologSingle(qCheck, function(ansCheck) {
-                summary.in_check = !!ansCheck;
-                
-                // Query 4: Material Values
-                const qValWhite = `material_value(${parsed.prologBoard}, white, WVal).`;
-                queryPrologSingle(qValWhite, function(ansValW) {
-                    const wVal = termToJs(ansValW ? ansValW.lookup("WVal") : null) || 0;
-                    summary.material_values.white = wVal;
-                    
-                    const qValBlack = `material_value(${parsed.prologBoard}, black, BVal).`;
-                    queryPrologSingle(qValBlack, function(ansValB) {
-                        const bVal = termToJs(ansValB ? ansValB.lookup("BVal") : null) || 0;
-                        summary.material_values.black = bVal;
-                        
-                        const margin = wVal - bVal;
-                        if (margin > 0) {
-                            summary.advantage.color = "white";
-                            summary.advantage.margin = margin;
-                        } else if (margin < 0) {
-                            summary.advantage.color = "black";
-                            summary.advantage.margin = Math.abs(margin);
-                        }
-                        
-                        // Query 5: Discovered attacks
-                        const qDisc = `discovered_attack_candidate(${parsed.prologBoard}, ${parsed.turnColor}, BlockerPos, AttackerPos, TargetPos).`;
-                        queryPrologAll(qDisc, function(ansDisc) {
-                            ansDisc.forEach(ans => {
-                                const b = squareToAlgebraic(termToJs(ans.lookup("BlockerPos")));
-                                const a = squareToAlgebraic(termToJs(ans.lookup("AttackerPos")));
-                                const t = squareToAlgebraic(termToJs(ans.lookup("TargetPos")));
-                                summary.discovered_attacks.push({ blocker: b, attacker: a, target: t });
-                            });
-                            
-                            // Query 6: Forks
-                            const qFork = `is_fork(${parsed.prologBoard}, ${parsed.turnColor === "white" ? "black" : "white"}, AttackerPos, Targets).`;
-                            queryPrologAll(qFork, function(ansFork) {
-                                ansFork.forEach(ans => {
-                                    const attacker = squareToAlgebraic(termToJs(ans.lookup("AttackerPos")));
-                                    const targets = termToJs(ans.lookup("Targets")).map(squareToAlgebraic);
-                                    summary.forks.existing.push({ attacker, targets });
-                                });
-                                
-                                callback(summary, null);
-                            });
-                        });
-                    });
-                });
-            });
-        });
+            const pinned_pieces = pinsRaw.map(squareToAlgebraic);
+            
+            const checking_pieces = checkingRaw.map(p => ({
+                piece: p.args[1],
+                square: squareToAlgebraic(p.args[2])
+            }));
+            
+            const threatened_pieces = threatenedRaw.map(p => ({
+                piece: p.args[1],
+                square: squareToAlgebraic(p.args[2])
+            }));
+            
+            const defended_pieces = defendedRaw.map(p => ({
+                piece: p.args[1],
+                square: squareToAlgebraic(p.args[2])
+            }));
+            
+            const discovered_attacks = discoveredRaw.map(da => ({
+                blocker: squareToAlgebraic(da.args[0]),
+                attacker: squareToAlgebraic(da.args[1]),
+                target: squareToAlgebraic(da.args[2])
+            }));
+            
+            const forks = {
+                existing: forksRaw.map(f => ({
+                    attacker: squareToAlgebraic(f.args[0]),
+                    targets: [squareToAlgebraic(f.args[1]), squareToAlgebraic(f.args[2])]
+                })),
+                moves_creating_forks: []
+            };
+            
+            let statusName = "active";
+            let winnerName = null;
+            if (gameStatusTerm && gameStatusTerm.functor === "status") {
+                statusName = gameStatusTerm.args[0];
+                winnerName = gameStatusTerm.args[1] === "none" ? null : gameStatusTerm.args[1];
+            }
+            
+            const margin = wVal - bVal;
+            const advantage = {
+                color: margin > 0 ? "white" : (margin < 0 ? "black" : "none"),
+                margin: Math.abs(margin)
+            };
+            
+            const summary = {
+                in_check: inCheck,
+                checking_pieces,
+                game_status: { status: statusName, winner: winnerName },
+                pinned_pieces,
+                threatened_pieces,
+                defended_pieces,
+                discovered_attacks,
+                forks,
+                material_values: { white: wVal, black: bVal },
+                advantage
+            };
+            
+            callback(summary, null);
+        } catch (e) {
+            callback(null, "Error parsing bridge results: " + e);
+        }
     });
 }
 """.replace("{{RULES}}", escaped_prolog)
