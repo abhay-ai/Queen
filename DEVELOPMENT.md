@@ -74,3 +74,47 @@ After editing `queen.pl` and running `convert_prolog.py`, verify the changes by 
    ```
 2. **Verify Browser rendering**:
    Open `docs/index.html` in a web browser, make a few moves, select different scenarios, and verify that the console contains no Prolog syntax or resolution errors.
+
+---
+
+## 📜 History of Key Maintenance Tasks (AI Memory & Reference)
+
+Use this section as a reference for issues that have been solved to avoid re-introducing regression bugs.
+
+### 1. Live FEN Sandbox Chessboard Rendering Failure (May 2026)
+* **Problem**: The interactive chessboard and analysis tabs remained empty on FEN input.
+* **Root Causes**:
+  1. **Concurrency Aborts**: The JS wrapper invoked `plSession.answers()` concurrently, causing query state machine aborts in Tau Prolog.
+  2. **Existence Errors**: JS bridge queried predicates (`checkmate/2`, `stalemate/2`, `is_fork/4`, `delete/3`) that did not exist in the Prolog module or library.
+  3. **Backtracking Timeout**: Capped at 10,000 inferences in-browser, the engine exceeded the limit due to $O(64 \times 64)$ backtracking in `legal_move/4` where coordinate generators ran before occupancy checks.
+* **Solutions**:
+  - Reordered subgoals in `legal_move/4` to bind variables up-front via `occupied(...)` before running coordinate generators.
+  - Increased Tau Prolog session limit to `1,000,000`.
+  - Refactored JS bridge to run a single consolidated query `js_tactical_summary/14` via `plSession.answer` (singular) to eliminate asynchronous concurrency corruption.
+
+### 2. Geometric Constraints Optimization (May 2026)
+* **Problem**: Even after checkmate optimization, the tactical search took up to 9 seconds on some positions.
+* **Solutions**:
+  - **`aligned/5` check**: Added a geometric alignment filter for sliding pieces. If a target square is ground, we compute the ray direction instantly instead of backtracking through all 8 vectors.
+  - **`candidate_target/4`**: Added a custom occupancy-aware target generator for sliders that stops walking a ray as soon as a blocking piece is encountered.
+  - **Discovered Attack filter**: Added `aligned` checks to filter blockers strictly to the line of sight between the slider and the target, avoiding $O(\text{pieces})$ select/move checks.
+
+### 3. Defended Pieces Bug & Variable Name Collision (May 2026)
+* **Problem**: Defended pieces were not being listed for sliding defenders, and forks returned an empty list `[]` under checkmate.
+* **Root Causes**:
+  - **`is_defended` Occupancy**: The friendly piece being defended was not removed from the simulated `TempBoard` before placing the simulated opponent piece, causing `\+ occupied` validation to fail.
+  - **Variable Collision**: In `js_tactical_summary`, the variable `Status` was bound by the game status query (e.g., `checkmate`), causing the subsequent forks findall query to fail.
+* **Solutions**:
+  - Fixed `is_defended/3` to select and remove the friendly piece first.
+  - Renamed the findall variable inside `js_tactical_summary` to `ForkStatus`.
+
+### 4. Fork safety classification (May 2026)
+* **Problem**: The pure geometric fork finder resulted in combinatoric explosion (e.g. 6 forks for one queen) and returned unsafe forks.
+* **Solution**:
+  - Added `fork_status/6` to classify forks into:
+    - `winning_fork`: Attacker is safe/defended, target undefended.
+    - `winning_trade`: Both targets defended, but capturing one wins material.
+    - `winning_sacrifice`: Attacker is hanging, but one target has higher value.
+    - `defended_trade` / `unsafe_attacker_hangs`: Neutral or unfavorable.
+  - Updated python `queen.py` and JS `queen_engine.js` to parse and output this status.
+
