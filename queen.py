@@ -90,6 +90,13 @@ def check_move_diagnostics(fen, move_uci):
             if explanation == "SUCCESS":
                 return True, ""
             else:
+                import re
+                def replace_match(match):
+                    x = int(match.group(1))
+                    y = int(match.group(2))
+                    file_char = file_map_inv.get(x, str(x))
+                    return f"{file_char}{y}"
+                explanation = re.sub(r'\b([1-8])-([1-8])\b', replace_match, explanation)
                 return False, explanation
                 
         return False, "Move rejected by core constraint engine."
@@ -174,7 +181,7 @@ def get_game_status(fen: str) -> dict:
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-def get_pinned_pieces(fen: str) -> list[str]:
+def get_pinned_pieces(fen: str) -> list[dict]:
     """
     Find all pinned friendly pieces for the turn player. Pinned pieces cannot move
     without exposing their King to check.
@@ -183,19 +190,33 @@ def get_pinned_pieces(fen: str) -> list[str]:
     - fen: The FEN string representing the board state.
     
     Returns:
-    A list of square coordinates (algebraic notation, e.g. ['f2']) containing pinned pieces.
+    A list of pinned pieces, where each piece is a dictionary:
+    {"piece": "pawn"|"knight"|..., "square": "e4"}
     """
     state_vars = parse_fen_to_prolog_vars(fen)
     if not state_vars:
         return []
     prolog_board, turn_color, _, _ = state_vars
-    query_string = f"is_pinned({prolog_board}, {turn_color}, X-Y)"
+    query_string = f"member(piece({turn_color}, Type, X-Y), {prolog_board}), is_pinned({prolog_board}, {turn_color}, X-Y)"
     try:
         results = list(prolog.query(query_string))
         pinned = []
         for r in results:
-            pinned.append(f"{file_map_inv[r['X']]}{r['Y']}")
-        return sorted(list(set(pinned)))
+            piece_type = r['Type']
+            if isinstance(piece_type, bytes):
+                piece_type = piece_type.decode('utf-8')
+            pinned.append({
+                "piece": str(piece_type),
+                "square": f"{file_map_inv[r['X']]}{r['Y']}"
+            })
+        seen = set()
+        unique_pinned = []
+        for p in pinned:
+            key = (p['piece'], p['square'])
+            if key not in seen:
+                seen.add(key)
+                unique_pinned.append(p)
+        return unique_pinned
     except Exception as e:
         print(f"Error querying pinned pieces: {e}")
         return []

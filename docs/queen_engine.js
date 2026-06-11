@@ -719,8 +719,7 @@ js_tactical_summary(Board, Color, Rights, EP, GameStatus, InCheck, Checking, Pin
     % 3. Checking pieces
     find_checking_pieces(Board, Color, Checking),
     % 4. Pinned pieces
-    find_pinned_pieces(Board, Color, PinnedTerms),
-    findall(Pos, member(piece(_, _, Pos), PinnedTerms), Pins),
+    find_pinned_pieces(Board, Color, Pins),
     % 5. Threatened pieces
     find_threats(Board, Color, Threats),
     % 6. Defended pieces
@@ -952,7 +951,13 @@ function jsCheckMoveDiagnostics(fen, moveUci, callback) {
         if (plExplanation === "SUCCESS") {
             callback(true, "");
         } else {
-            callback(false, plExplanation || "Move rejected by core constraint engine.");
+            let explanation = plExplanation || "Move rejected by core constraint engine.";
+            explanation = explanation.replace(/\b([1-8])-([1-8])\b/g, (match, xStr, yStr) => {
+                const x = parseInt(xStr, 10);
+                const fileMapInv = {1: 'a', 2: 'b', 3: 'c', 4: 'd', 5: 'e', 6: 'f', 7: 'g', 8: 'h'};
+                return (fileMapInv[x] || xStr) + yStr;
+            });
+            callback(false, explanation);
         }
     });
 }
@@ -1035,7 +1040,10 @@ function jsGetTacticalSummary(fen, callback) {
                 return fileMapInv[x] + y;
             }
             
-            const pinned_pieces = pinsRaw.map(squareToAlgebraic);
+            const pinned_pieces = pinsRaw.map(p => ({
+                piece: p.args[1],
+                square: squareToAlgebraic(p.args[2])
+            }));
             
             const checking_pieces = checkingRaw.map(p => ({
                 piece: p.args[1],

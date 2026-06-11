@@ -53,7 +53,7 @@ def get_game_status(fen: str) -> dict:
     return queen.get_game_status(fen)
 
 @mcp.tool()
-def get_pinned_pieces(fen: str) -> list[str]:
+def get_pinned_pieces(fen: str) -> list[dict]:
     """
     Get all pinned friendly pieces for the turn player in the given FEN position.
     
@@ -61,7 +61,8 @@ def get_pinned_pieces(fen: str) -> list[str]:
     - fen: The FEN string representing the board state.
     
     Returns:
-    A list of square coordinates (algebraic notation) containing pinned friendly pieces.
+    A list of pinned friendly pieces, where each piece is a dictionary:
+    {"piece": "pawn"|"knight"|..., "square": "e4"}
     """
     return queen.get_pinned_pieces(fen)
 

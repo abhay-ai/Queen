@@ -1316,7 +1316,7 @@ State = state([
   piece(black, pawn, 8-7),
   piece(black, rook, 7-8),
   piece(white, rook, 7-1),
-  piece(white, king, 7-1)
+  piece(white, king, 8-1)
 ], white, [], none).
 
 % Query if moving Rook from f6 (6-6) to f7 (6-7) is a forced mate-in-two
@@ -1951,7 +1951,7 @@ print("Discovered Attacks:", summary['discovered_attacks'])
     function getHighlightsFromSummary(summary, fen) {
       const highlights = {
         check: [],
-        pin: [...summary.pinned_pieces],
+        pin: summary.pinned_pieces.map(p => p.square),
         attack: []
       };
       
