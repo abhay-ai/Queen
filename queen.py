@@ -62,12 +62,40 @@ def check_move_diagnostics(fen, move_uci):
     Returns a tuple: (is_legal, explanation_string)
     """
     if not isinstance(move_uci, str) or len(move_uci) < 4 or len(move_uci) > 5:
-        return False, "Malformed string format. It must be exactly 4 lowercase characters (e.g., e2e4)."
+        return False, "Malformed string format. It must be 4 or 5 characters (e.g., e2e4 or e7e8q)."
 
     move_from, move_to = move_uci[:2], move_uci[2:4]
     
     if move_from[0] not in file_map or not move_from[1].isdigit() or move_to[0] not in file_map or not move_to[1].isdigit():
         return False, "Coordinates fall entirely outside the boundaries of an 8x8 chessboard grid."
+
+    import chess
+    try:
+        board = chess.Board(fen)
+    except Exception:
+        return False, "Invalid FEN board state."
+
+    try:
+        from_square = chess.parse_square(move_from)
+        to_square = chess.parse_square(move_to)
+    except Exception:
+        return False, "Invalid coordinates."
+
+    piece = board.piece_at(from_square)
+    is_pawn = piece and piece.piece_type == chess.PAWN
+    to_rank = chess.square_rank(to_square)
+    is_promotion_rank = (to_rank == 7 or to_rank == 0)
+    is_promoting = is_pawn and is_promotion_rank
+
+    if is_promoting:
+        if len(move_uci) != 5:
+            return False, "Pawn promotion moves must specify a promotion piece (e.g., e7e8q)."
+        promo_char = move_uci[4].lower()
+        if promo_char not in ('q', 'r', 'b', 'n'):
+            return False, "Invalid promotion piece specified. Must be one of: q, r, b, n."
+    else:
+        if len(move_uci) != 4:
+            return False, "Non-promotion moves must be exactly 4 characters (e.g., e2e4)."
 
     state_vars = parse_fen_to_prolog_vars(fen)
     if not state_vars:

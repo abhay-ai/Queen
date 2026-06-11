@@ -918,17 +918,62 @@ function termToJs(term) {
 
 // Public bridge API matching python methods
 function jsCheckMoveDiagnostics(fen, moveUci, callback) {
-    if (moveUci.length < 4) {
-        callback(false, "Invalid move format");
+    if (typeof moveUci !== "string" || moveUci.length < 4 || moveUci.length > 5) {
+        callback(false, "Malformed string format. It must be 4 or 5 characters (e.g., e2e4 or e7e8q).");
         return;
     }
     const fileMap = {'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8};
     const fromSquare = moveUci.substring(0, 2);
     const toSquare = moveUci.substring(2, 4);
     
-    if (!(fromSquare[0] in fileMap) || !(toSquare[0] in fileMap)) {
-        callback(false, "Coordinates fall entirely outside the boundaries of the board.");
+    if (!(fromSquare[0] in fileMap) || !/^[1-8]$/.test(fromSquare[1]) || !(toSquare[0] in fileMap) || !/^[1-8]$/.test(toSquare[1])) {
+        callback(false, "Coordinates fall entirely outside the boundaries of an 8x8 chessboard grid.");
         return;
+    }
+    
+    function getPieceAtSquare(fenStr, sq) {
+        const fm = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7};
+        const parts = fenStr.trim().split(/\s+/);
+        if (!parts || parts.length === 0) return null;
+        const ranks = parts[0].split('/');
+        const fIdx = fm[sq[0]];
+        const rIdx = 8 - parseInt(sq[1], 10);
+        if (rIdx < 0 || rIdx >= 8 || fIdx < 0 || fIdx >= 8) return null;
+        const rStr = ranks[rIdx];
+        let currentFile = 0;
+        for (let i = 0; i < rStr.length; i++) {
+            const char = rStr[i];
+            if (/\d/.test(char)) {
+                currentFile += parseInt(char, 10);
+            } else {
+                if (currentFile === fIdx) return char;
+                currentFile++;
+            }
+        }
+        return null;
+    }
+
+    const pieceChar = getPieceAtSquare(fen, fromSquare);
+    const isPawn = pieceChar && pieceChar.toLowerCase() === 'p';
+    const toRank = parseInt(toSquare[1], 10);
+    const isPromotionRank = (toRank === 8 || toRank === 1);
+    const isPromoting = isPawn && isPromotionRank;
+
+    if (isPromoting) {
+        if (moveUci.length !== 5) {
+            callback(false, "Pawn promotion moves must specify a promotion piece (e.g., e7e8q).");
+            return;
+        }
+        const promoChar = moveUci[4].toLowerCase();
+        if (promoChar !== 'q' && promoChar !== 'r' && promoChar !== 'b' && promoChar !== 'n') {
+            callback(false, "Invalid promotion piece specified. Must be one of: q, r, b, n.");
+            return;
+        }
+    } else {
+        if (moveUci.length !== 4) {
+            callback(false, "Non-promotion moves must be exactly 4 characters (e.g., e2e4).");
+            return;
+        }
     }
     
     const parsed = parseFenToPrologVars(fen);
