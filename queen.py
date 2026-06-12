@@ -512,12 +512,13 @@ def get_moves_creating_attacks(board) -> list[dict]:
         board.pop()
     return attacks_created
 
-def get_tactical_summary(fen: str) -> dict:
+def get_tactical_summary(fen: str, include_mate_in_three: bool = False) -> dict:
     """
     Get a consolidated tactical summary of the board position (pins, threats, defense, forks, check status, and multi-step tactics).
     
     Parameters:
     - fen: The FEN string representing the board state.
+    - include_mate_in_three: Whether to run the expensive mate-in-3 Prolog solver (default False).
     
     Returns:
     A summary dictionary.
@@ -542,7 +543,7 @@ def get_tactical_summary(fen: str) -> dict:
             "checking_pieces": get_checking_pieces(board),
             "mate_in_one": get_mate_in_one(fen),
             "mate_in_two": get_mate_in_two(fen),
-            "mate_in_three": get_mate_in_three(fen),
+            "mate_in_three": get_mate_in_three(fen) if include_mate_in_three else [],
             "forced_material_wins": get_forced_material_wins(fen),
             "moves_giving_check": get_moves_giving_check(board),
             "moves_creating_pins": get_moves_creating_pins(board),
