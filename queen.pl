@@ -670,3 +670,194 @@ dynamic_material_advantage(Board, AdvantageColor, Difference) :-
         Difference is BlackVal - WhiteVal
     ).
 
+% =====================================================================
+% 10. MOVE CLASSIFICATION & SCORING
+% =====================================================================
+
+queen_max_list([H|T], Max) :- queen_max_list(T, H, Max).
+queen_max_list([], Max, Max).
+queen_max_list([H|T], CurrentMax, Max) :-
+    (H > CurrentMax -> NextMax = H ; NextMax = CurrentMax),
+    queen_max_list(T, NextMax, Max).
+
+is_safe_move(Board, Color, PieceType, To, CapVal) :-
+    piece_value(PieceType, MyVal),
+    opponent(Color, Enemy),
+    forall(
+        (member(piece(Enemy, EnemyType, EnemyPos), Board),
+         move_piece(EnemyType, Board, none, EnemyPos, To)),
+        (
+            (is_defended(Board, Color, To) ->
+                piece_value(EnemyType, EnemyVal),
+                CapVal - MyVal + EnemyVal >= 0
+            ;
+                CapVal - MyVal >= 0
+            )
+        )
+    ).
+
+is_good_sacrifice(State, From, To, Type, Score) :-
+    From = FromX-FromY,
+    To = ToX-ToY,
+    (mate_in_two(State, FromX-FromY, ToX-ToY) ->
+        Type = mate_in_two,
+        Score = 900
+    ;
+        (mate_in_three(State, FromX-FromY, ToX-ToY) ->
+            Type = mate_in_three,
+            Score = 800
+        ;
+            (forced_material_win_two(State, FromX-FromY, ToX-ToY, _, MinGain), MinGain >= 1 ->
+                Type = forced_material_win,
+                Score is 200 + MinGain * 10
+            ;
+                fail
+            )
+        )
+    ).
+
+classify_move(State, From, To, Promo, Classifications, Score) :-
+    State = state(Board, Color, _Rights, EP),
+    opponent(Color, Enemy),
+    legal_move(State, From, To, NextState),
+    NextState = state(NewBoard, _, _, _),
+    
+    To = _ToX-ToY,
+    occupied(Board, From, Color, PieceType),
+    
+    % Determine Promo type
+    (occupied(Board, From, Color, pawn), (ToY =:= 8 ; ToY =:= 1) ->
+        occupied(NewBoard, To, Color, Promo),
+        Promo \== pawn
+    ;
+        Promo = none
+    ),
+    
+    % Check for check
+    (in_check(NewBoard, Enemy) ->
+        IsCheck = true
+    ;
+        IsCheck = false
+    ),
+    
+    % Check for checkmate (only if the opponent is in check)
+    (IsCheck == true ->
+        (game_status(NextState, status(checkmate, _)) ->
+            IsCheckmate = true
+        ;
+            IsCheckmate = false
+        )
+    ;
+        IsCheckmate = false
+    ),
+    
+    % Check for capture
+    (occupied(Board, To, Enemy, CapType) ->
+        IsCapture = true,
+        piece_value(CapType, CapVal)
+    ;
+        % Check for en passant capture
+        (occupied(Board, From, Color, pawn), EP \== none, To = EP-ToY, (Color == white -> ToY =:= 6 ; ToY =:= 3) ->
+            IsCapture = true,
+            CapVal = 1
+        ;
+            IsCapture = false,
+            CapVal = 0
+        )
+    ),
+    
+    % Check for safety
+    (is_safe_move(NewBoard, Color, PieceType, To, CapVal) ->
+        IsSafe = true
+    ;
+        IsSafe = false
+    ),
+    
+    % Check for fork (only if the fork is tactically winning or at least safe!)
+    (is_fork(NewBoard, Color, To, Target1, Target2) ->
+        fork_status(NewBoard, Color, To, Target1, Target2, Status),
+        (Status \== unsafe_attacker_hangs ->
+            IsFork = true
+        ;
+            IsFork = false
+        )
+    ;
+        IsFork = false
+    ),
+    
+    % Check for discovered attack
+    (discovered_attack_candidate(Board, Color, From, AttackerPos, TargetPos),
+     occupied(NewBoard, AttackerPos, Color, AttackerType),
+     move_piece(AttackerType, NewBoard, none, AttackerPos, TargetPos) ->
+        IsDiscovered = true
+    ;
+        IsDiscovered = false
+    ),
+    
+    % Check for castling
+    (is_castle_coordinates(Color, From, To, _) ->
+        IsCastle = true
+    ;
+        IsCastle = false
+    ),
+    
+    % Check for development
+    (starting_square(Color, DevType, From), DevType \== pawn ->
+        IsDevelopment = true
+    ;
+        IsDevelopment = false
+    ),
+    
+    % Collect classifications
+    findall(Class, (
+        (IsCheckmate == true, Class = checkmate) ;
+        (IsCapture == true, Class = capture) ;
+        (Promo \== none, Class = promotion) ;
+        (IsFork == true, Class = fork) ;
+        (IsDiscovered == true, Class = discovered_attack) ;
+        (IsCheck == true, Class = check) ;
+        (IsCastle == true, Class = castling) ;
+        (IsDevelopment == true, Class = development)
+    ), RawClasses),
+    
+    (RawClasses = [] ->
+        TempClasses = [positional],
+        BaseScore = 10
+    ;
+        TempClasses = RawClasses,
+        % Compute Score
+        findall(S, (
+            (IsCheckmate == true -> S = 1000) ;
+            (IsCapture == true -> S is 100 + CapVal * 10) ;
+            (Promo \== none ->
+                piece_value(Promo, PromoVal),
+                S is 80 + PromoVal
+            ) ;
+            (IsFork == true -> S = 70) ;
+            (IsDiscovered == true -> S = 60) ;
+            (IsCheck == true -> S = 50) ;
+            (IsCastle == true -> S = 40) ;
+            (IsDevelopment == true -> S = 30)
+        ), Scores),
+        queen_max_list(Scores, BaseScore)
+    ),
+    
+    (IsSafe == true ->
+        Classifications = TempClasses,
+        Score = BaseScore
+    ;
+        (IsCheckmate == true ->
+            Classifications = TempClasses,
+            Score = BaseScore
+        ;
+            (is_good_sacrifice(State, From, To, SacType, SacScore) ->
+                append(TempClasses, [sacrifice, SacType], Classifications),
+                Score = SacScore
+            ;
+                append(TempClasses, [unsafe], Classifications),
+                Score is BaseScore - 200
+            )
+        )
+    ).
+
+

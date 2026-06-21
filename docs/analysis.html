@@ -1,0 +1,1982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Queen | PGN Tactical Move Analysis</title>
+  
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel-bg: #161b22;
+      --panel-border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --text-highlight: #f0f6fc;
+      
+      --accent: #58a6ff;
+      --cyan: #39d353;
+      --red: #f85149;
+      --gold: #d29922;
+      --purple: #bc7eff;
+      
+      --square-size: 48px;
+      --piece-size: 2.2rem;
+      
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+      --font-mono: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+      
+      --sidebar-width: 280px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      overflow-x: hidden;
+    }
+
+    /* Navigation Sidebar */
+    aside {
+      width: var(--sidebar-width);
+      background: #0d1117;
+      border-right: 1px solid var(--panel-border);
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .brand h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: -0.05rem;
+      color: var(--text-highlight);
+    }
+    .brand svg {
+      width: 1.8rem;
+      height: 1.8rem;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .nav-links {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      display: block;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .nav-links a:hover {
+      color: var(--text-highlight);
+      background: #21262d;
+    }
+    .nav-links a.active {
+      color: var(--text-highlight);
+      background: #21262d;
+      font-weight: 600;
+    }
+
+    /* Main Content Area */
+    main {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      padding: 3rem 4rem;
+      max-width: 1300px;
+      position: relative;
+      z-index: 1;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-highlight);
+      padding-bottom: 0.3rem;
+      border-bottom: 1px solid var(--panel-border);
+      margin-bottom: 1.5rem;
+    }
+
+    p {
+      color: var(--text);
+      font-size: 1rem;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+
+    .glass-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Grid Layout for Analysis */
+    .analysis-container {
+      display: grid;
+      grid-template-columns: minmax(400px, max-content) 1fr;
+      gap: 2.5rem;
+      align-items: start;
+    }
+
+    /* Chessboard & Controls Wrapper */
+    .board-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .chessboard {
+      display: grid;
+      grid-template-columns: repeat(8, var(--square-size));
+      grid-template-rows: repeat(8, var(--square-size));
+      border: 3px solid var(--panel-border);
+      border-radius: 6px;
+      position: relative;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .square {
+      width: var(--square-size);
+      height: var(--square-size);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      user-select: none;
+    }
+    .square.light {
+      background-color: #f0d9b5;
+    }
+    .square.dark {
+      background-color: #b58863;
+    }
+    
+    .piece {
+      font-size: var(--piece-size);
+      line-height: 1;
+      cursor: default;
+      z-index: 2;
+    }
+    .piece.white-piece {
+      color: #fff;
+      filter: drop-shadow(0 2px 2px rgba(0,0,0,0.6));
+    }
+    .piece.black-piece {
+      color: #000;
+      filter: drop-shadow(0 1px 1px rgba(255,255,255,0.4));
+    }
+
+    /* Coordinate Labels */
+    .label-rank {
+      position: absolute;
+      top: 2px;
+      left: 3px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      opacity: 0.7;
+      z-index: 1;
+    }
+    .square.light .label-rank { color: #b58863; }
+    .square.dark .label-rank { color: #f0d9b5; }
+
+    .label-file {
+      position: absolute;
+      bottom: 2px;
+      right: 3px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      opacity: 0.7;
+      z-index: 1;
+    }
+    .square.light .label-file { color: #b58863; }
+    .square.dark .label-file { color: #f0d9b5; }
+
+    /* Square Highlights */
+    .square.highlight-check::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-color: rgba(248, 81, 73, 0.4);
+      z-index: 3;
+      pointer-events: none;
+    }
+    .square.highlight-attack::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-color: rgba(210, 153, 34, 0.3);
+      z-index: 3;
+      pointer-events: none;
+    }
+    .square.highlight-pin::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-color: rgba(88, 166, 255, 0.35);
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* Navigation Controls */
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+    .nav-btn {
+      background: #21262d;
+      border: 1px solid var(--panel-border);
+      color: var(--text);
+      padding: 0.6rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease, color 0.15s ease;
+      min-width: 44px;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: #30363d;
+      color: var(--text-highlight);
+    }
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .nav-btn.play-btn {
+      background: rgba(88, 166, 255, 0.1);
+      border-color: rgba(88, 166, 255, 0.3);
+      color: var(--accent);
+    }
+    .nav-btn.play-btn:hover:not(:disabled) {
+      background: rgba(88, 166, 255, 0.2);
+    }
+
+    /* Speed Slider */
+    .speed-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      width: 100%;
+      justify-content: center;
+    }
+    .speed-slider {
+      flex: 1;
+      max-width: 150px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* Input & Interactive Move List Card */
+    .interactive-card {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+      background: #0d1117;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      color: var(--text-highlight);
+      padding: 0.75rem;
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      resize: vertical;
+      outline: none;
+    }
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0d1117;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: opacity 0.15s ease;
+    }
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+    .btn-secondary {
+      background: #21262d;
+      color: var(--text);
+      border: 1px solid var(--panel-border);
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: background 0.15s ease;
+    }
+    .btn-secondary:hover {
+      background: #30363d;
+      color: var(--text-highlight);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    /* Move List Panel */
+    .move-list-header {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05rem;
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 0.5rem;
+    }
+
+    .move-list {
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      padding: 0.5rem;
+      background: #0d1117;
+      border-radius: 6px;
+      border: 1px solid var(--panel-border);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+    }
+    .move-pair {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.2rem 0.4rem;
+    }
+    .move-num {
+      color: var(--text-muted);
+    }
+    .move-span {
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .move-span:hover {
+      background: #21262d;
+      color: var(--text-highlight);
+    }
+    .move-span.active {
+      background: rgba(88, 166, 255, 0.2);
+      color: var(--accent);
+      font-weight: 700;
+      outline: 1px solid rgba(88, 166, 255, 0.4);
+    }
+
+    /* Outputs section style */
+    .output-section {
+      grid-column: 1 / -1;
+    }
+
+    .code-tabs {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      background: #0d1117;
+      min-height: 380px;
+    }
+    .tab-header {
+      display: flex;
+      background: #161b22;
+      border-bottom: 1px solid var(--panel-border);
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-right: 1px solid var(--panel-border);
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.9rem 1.5rem;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .tab-btn:hover {
+      color: var(--text-highlight);
+      background: #21262d;
+    }
+    .tab-btn.active {
+      color: var(--text-highlight);
+      background: #0d1117;
+      border-bottom: 1px solid #0d1117;
+    }
+
+    .tab-content {
+      padding: 1.5rem;
+      flex: 1;
+      position: relative;
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Raw JSON Output */
+    pre {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: #e6edf3;
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: #21262d;
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      color: var(--text-muted);
+      padding: 0.35rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      z-index: 5;
+    }
+    .copy-btn:hover {
+      background: #30363d;
+      color: var(--text-highlight);
+    }
+
+    /* Human readable list */
+    .readable-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .readable-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      border: 1px solid var(--panel-border);
+      line-height: 1.5;
+    }
+    .readable-item.info {
+      background: rgba(88, 166, 255, 0.05);
+      border-color: rgba(88, 166, 255, 0.15);
+    }
+    .readable-item.warning {
+      background: rgba(210, 153, 34, 0.05);
+      border-color: rgba(210, 153, 34, 0.15);
+    }
+    .readable-item.danger {
+      background: rgba(248, 81, 73, 0.05);
+      border-color: rgba(248, 81, 73, 0.15);
+    }
+    .readable-item.success {
+      background: rgba(57, 211, 83, 0.05);
+      border-color: rgba(57, 211, 83, 0.15);
+    }
+    .readable-icon {
+      font-size: 1.1rem;
+      line-height: 1;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+    .readable-text strong {
+      color: var(--text-highlight);
+    }
+
+    /* Complex Output Card Placeholder */
+    .placeholder-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 250px;
+      text-align: center;
+      gap: 1.25rem;
+      padding: 2rem;
+    }
+    .placeholder-glow {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(88, 166, 255, 0.1);
+      border: 1px solid rgba(88, 166, 255, 0.2);
+      color: var(--accent);
+      box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
+      animation: pulse 2s infinite ease-in-out;
+    }
+    .placeholder-glow svg {
+      width: 32px;
+      height: 32px;
+    }
+    .placeholder-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text-highlight);
+    }
+    .placeholder-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      max-width: 400px;
+      line-height: 1.5;
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
+      }
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 35px rgba(88, 166, 255, 0.4);
+      }
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
+      }
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #engine-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.25rem 0.6rem;
+      border-radius: 12px;
+      background: rgba(248, 81, 73, 0.15);
+      border: 1px solid var(--red);
+      color: #ff7b72;
+      align-self: flex-start;
+      margin-bottom: 0.5rem;
+    }
+    #engine-status-badge.ready {
+      background: rgba(57, 211, 83, 0.15);
+      border-color: #39d353;
+      color: #39d353;
+    }
+
+    /* Responsive */
+    @media (max-width: 1100px) {
+      body {
+        flex-direction: column;
+      }
+      aside {
+        width: 100%;
+        position: relative;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--panel-border);
+        padding: 1.5rem;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .nav-links {
+        flex-direction: row;
+        gap: 1rem;
+      }
+      main {
+        margin-left: 0;
+        padding: 2rem;
+      }
+      .analysis-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 600px) {
+      :root {
+        --square-size: 38px;
+        --piece-size: 1.8rem;
+      }
+      aside {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+      .nav-links {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      main {
+        padding: 1.5rem 1rem;
+      }
+      .button-group {
+        flex-direction: column;
+        width: 100%;
+      }
+      .button-group button {
+        width: 100%;
+      }
+    }
+
+    /* Tactical Badge Styles */
+    .badge-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      line-height: 1.2;
+    }
+    .badge.danger {
+      background: rgba(248, 81, 73, 0.15);
+      border: 1px solid var(--red);
+      color: #ff7b72;
+    }
+    .badge.warning {
+      background: rgba(210, 153, 34, 0.15);
+      border: 1px solid var(--gold);
+      color: #f0883e;
+    }
+    .badge.info {
+      background: rgba(88, 166, 255, 0.15);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+    .badge.success {
+      background: rgba(57, 211, 83, 0.15);
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+    }
+    .badge.neutral {
+      background: rgba(48, 54, 61, 0.3);
+      border: 1px solid var(--panel-border);
+      color: var(--text-muted);
+    }
+    .badge.purple {
+      background: rgba(188, 126, 255, 0.15);
+      border: 1px solid var(--purple);
+      color: #d2a8ff;
+    }
+    
+    /* Interactive Analysis Rows */
+    .analysis-row {
+      border-bottom: 1px solid var(--panel-border);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .analysis-row:hover {
+      background: rgba(88, 166, 255, 0.05);
+    }
+    .analysis-row.previewing {
+      background: rgba(88, 166, 255, 0.1);
+      outline: 1px solid rgba(88, 166, 255, 0.2);
+    }
+    .square.highlight-preview::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-color: rgba(57, 211, 83, 0.35);
+      border: 2px dashed var(--cyan);
+      z-index: 3;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Sidebar -->
+  <aside>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm1 14h16v2H3z" />
+      </svg>
+      <h1>Queen</h1>
+    </div>
+    <ul class="nav-links">
+      <li><a href="index.html#overview">Overview</a></li>
+      <li><a href="index.html#architecture">Architecture</a></li>
+      <li><a href="index.html#playground">Playground</a></li>
+      <li><a href="index.html#sandbox">Live Sandbox</a></li>
+      <li><a href="index.html#usecase">Use Case (R_Daneel_AI)</a></li>
+      <li><a href="index.html#api">API Reference</a></li>
+      <li><a href="index.html#setup">Setup Guide</a></li>
+      <li><a href="analysis.html" class="active">PGN Analysis</a></li>
+    </ul>
+  </aside>
+
+  <!-- Main Content -->
+  <main>
+    <section>
+      <h2>PGN Move-by-Move Analysis</h2>
+      <p class="lead">
+        Paste a PGN game below to dissect it move-by-move. The compiled browser engine solves each position synchronously, producing structured JSON-RPC summaries and translating tactical variables into human-understandable diagnostics.
+      </p>
+      
+      <div id="engine-status-badge">🔴 Loading Prolog Constraint Solver...</div>
+      
+      <div class="analysis-container">
+        
+        <!-- Left Side: Interactive Board -->
+        <div class="board-section">
+          <div id="chessboard" class="chessboard"></div>
+          
+          <!-- Navigation Buttons -->
+          <div class="nav-controls">
+            <button id="btn-start" class="nav-btn" title="Go to starting position" onclick="goToMove(-1)" disabled>&lt;&lt;</button>
+            <button id="btn-prev" class="nav-btn" title="Previous move" onclick="prevMove()" disabled>&lt;</button>
+            <button id="btn-play" class="nav-btn play-btn" title="Autoplay game" onclick="togglePlay()" disabled>Play</button>
+            <button id="btn-next" class="nav-btn" title="Next move" onclick="nextMove()" disabled>&gt;</button>
+            <button id="btn-end" class="nav-btn" title="Go to end" onclick="goToMove(movesList.length - 1)" disabled>&gt;&gt;</button>
+            <button id="btn-flip" class="nav-btn" title="Flip Board Perspective (White/Black)" onclick="flipBoard()" disabled>🔄 Flip</button>
+          </div>
+          
+          <div class="speed-container">
+            <span>Delay:</span>
+            <input type="range" id="autoplay-speed" class="speed-slider" min="800" max="4000" step="200" value="2000" onchange="updatePlaySpeed()">
+            <span id="speed-val">2.0s</span>
+          </div>
+        </div>
+        
+        <!-- Right Side: PGN Input & Move Selection -->
+        <div class="glass-card interactive-card">
+          <div>
+            <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Paste PGN Text</label>
+            <textarea id="pgn-input" placeholder="Paste standard PGN format (e.g. 1. e4 e5 2. Nf3 Nc6 3. Bb5...)"></textarea>
+          </div>
+          
+          <div class="button-group">
+            <button class="btn-primary" onclick="loadPgnText()">Load Game</button>
+            <button class="btn-secondary" onclick="loadDemo('scholars')">Scholar's Mate Game</button>
+            <button class="btn-secondary" onclick="loadDemo('fork')">Tactical Fork Game</button>
+          </div>
+          
+          <div>
+            <div class="move-list-header">Moves Index</div>
+            <div id="move-list" class="move-list" style="margin-top: 0.5rem;">
+              <span style="color: var(--text-muted); font-style: italic; padding: 0.5rem;">Paste a PGN and click "Load Game" to generate index...</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Bottom: Outputs Panel -->
+        <div class="output-section">
+          <style>
+            /* Subtabs Styles */
+            .subtab-header {
+              display: flex;
+              gap: 0.5rem;
+              margin-bottom: 1rem;
+              border-bottom: 1px solid var(--panel-border);
+              padding-bottom: 0.5rem;
+            }
+            .subtab-btn {
+              background: none;
+              border: none;
+              color: var(--text-muted);
+              font-family: var(--font-sans);
+              font-size: 0.85rem;
+              font-weight: 600;
+              padding: 0.4rem 0.8rem;
+              border-radius: 4px;
+              cursor: pointer;
+              transition: background 0.15s ease, color 0.15s ease;
+            }
+            .subtab-btn:hover {
+              color: var(--text-highlight);
+              background: #21262d;
+            }
+            .subtab-btn.active {
+              color: var(--accent);
+              background: rgba(88, 166, 255, 0.1);
+              border: 1px solid rgba(88, 166, 255, 0.2);
+            }
+            .subtab-content {
+              display: none;
+            }
+            .subtab-content.active {
+              display: block;
+            }
+            .readable-item.neutral {
+              background: rgba(48, 54, 61, 0.2);
+              border-color: var(--panel-border);
+              color: var(--text);
+            }
+          </style>
+          <div class="code-tabs">
+            <div class="tab-header" role="tablist" aria-label="Analysis Outputs">
+              <button id="tab-readable" class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-readable" onclick="switchTab(event, 'panel-readable')">Readable Text Output</button>
+              <button id="tab-raw" class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-raw" onclick="switchTab(event, 'panel-raw')">Present Structured Output (JSON)</button>
+              <button id="tab-complex" class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-complex" onclick="switchTab(event, 'panel-complex')">Top Moves Analysis</button>
+            </div>
+            
+            <!-- Tab: Human Readable Summary -->
+            <div id="panel-readable" class="tab-content active" role="tabpanel" aria-labelledby="tab-readable">
+              <!-- Game Status Banner -->
+              <div id="game-status-banner" class="readable-item info" style="margin-bottom: 1.25rem;">
+                <span class="readable-icon">ℹ️</span>
+                <span class="readable-text" id="game-status-text">Please load a PGN game and step through the moves to trigger natural language tactical reports.</span>
+              </div>
+              
+              <div class="subtab-header" id="readable-subtabs" style="display: none;">
+                <button id="subtab-we-btn" class="subtab-btn active" onclick="switchSubTab(event, 'subpanel-we')">Attacks We Have</button>
+                <button id="subtab-enemy-btn" class="subtab-btn" onclick="switchSubTab(event, 'subpanel-enemy')">Attacks Enemy Has</button>
+              </div>
+              
+              <button class="copy-btn" id="btn-copy-readable" onclick="copyActiveSubTab()" style="display: none;">Copy Text</button>
+              
+              <!-- Subpanel: Attacks We Have -->
+              <div id="subpanel-we" class="subtab-content active">
+                <ul class="readable-list" id="readable-list-we">
+                  <li class="readable-item info">
+                    <span class="readable-icon">ℹ️</span>
+                    <span class="readable-text">Select moves to analyze attacks created by our side.</span>
+                  </li>
+                </ul>
+              </div>
+              
+              <!-- Subpanel: Attacks Enemy Has -->
+              <div id="subpanel-enemy" class="subtab-content">
+                <ul class="readable-list" id="readable-list-enemy">
+                  <li class="readable-item info">
+                    <span class="readable-icon">ℹ️</span>
+                    <span class="readable-text">Select moves to analyze tactical threats posed by the opponent.</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            
+            <!-- Tab: Raw JSON Output -->
+            <div id="panel-raw" class="tab-content" role="tabpanel" aria-labelledby="tab-raw">
+              <button class="copy-btn" onclick="copyCode('raw-json-pre')">Copy</button>
+              <pre id="raw-json-pre">JSON Tactical payload will appear here...</pre>
+            </div>
+            
+            <!-- Tab: Top Moves Analysis -->
+            <div id="panel-complex" class="tab-content" role="tabpanel" aria-labelledby="tab-complex">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <span style="font-size: 0.9rem; color: var(--text-muted);">Tactical ranking of all legal moves in this position:</span>
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+                  <span>Show:</span>
+                  <select id="moves-limit" onchange="updateMovesAnalysisUI()" style="background: #161b22; border: 1px solid var(--panel-border); color: var(--text-highlight); padding: 0.3rem 0.6rem; border-radius: 4px; outline: none; cursor: pointer;">
+                    <option value="5">Top 5</option>
+                    <option value="10" selected>Top 10</option>
+                    <option value="all">All</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                  <thead>
+                    <tr style="border-bottom: 2px solid var(--panel-border); color: var(--text-muted); font-weight: 600;">
+                      <th style="padding: 0.75rem 0.5rem; width: 60px;">Rank</th>
+                      <th style="padding: 0.75rem 0.5rem; width: 100px;">Move</th>
+                      <th style="padding: 0.75rem 0.5rem;">Classifications</th>
+                      <th style="padding: 0.75rem 0.5rem; text-align: right; width: 80px;">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody id="moves-analysis-tbody">
+                    <tr>
+                      <td colspan="4" style="padding: 2rem; text-align: center; color: var(--text-muted); font-style: italic;">
+                        Please load a PGN game and step through the moves to trigger Top Moves analysis.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div style="margin-top: 1.25rem; font-size: 0.825rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem;">
+                <span>💡 Click on a row to preview the move's trajectory on the board.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </section>
+  </main>
+
+  <!-- Tau Prolog modules and chess.js -->
+  <script src="https://unpkg.com/tau-prolog@0.3.2/modules/core.js"></script>
+  <script src="https://unpkg.com/tau-prolog@0.3.2/modules/lists.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <script src="queen_engine.js"></script>
+
+  <script>
+    // App State Variables
+    let engineReady = false;
+    let movesList = []; // Holds FEN and description for each move index
+    let currentMoveIndex = -1; // -1 represents starting board layout
+    let playInterval = null;
+    let autoplayDelay = 2000;
+    
+    // Board Orientation State
+    let boardOrientation = 'white'; // 'white' or 'black'
+    
+    // Cached Tactical Summaries for both perspectives
+    let currentSummaryWhite = null;
+    let currentSummaryBlack = null;
+    let currentAnalysisFen = null;
+    let currentMovesAnalysis = [];
+    let previewedMoveUci = null;
+    let movesAnalysisCache = {};
+    let analyzingMoves = false;
+    let funnyLoadingInterval = null;
+    
+    // Preset PGN demos
+    const DEMO_PGNS = {
+      scholars: `[Event "Scholar's Mate Demo"]
+1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7#`,
+      fork: `[Event "Tactical Fork Demo"]
+1. e4 e5 2. Nf3 Nc6 3. Bc4 d6 4. Nc3 Bg4 5. h3 Bh5 6. Nxe5 Bxd1 7. Bxf7+ Ke7 8. Nd5#`
+    };
+
+    // Initialize Page
+    document.addEventListener("DOMContentLoaded", () => {
+      // 1. Render starting board layout
+      const startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+      renderFen(startFen, {}, 'chessboard');
+      
+      // 2. Start browser Prolog engine
+      initQueenEngine(
+        function() {
+          engineReady = true;
+          const badge = document.getElementById("engine-status-badge");
+          badge.textContent = "🟢 Prolog Solver Ready";
+          badge.className = "ready";
+          console.log("Prolog constraints referee loaded successfully.");
+          
+          // Pre-analyze starting position
+          analyzeCurrentFen(startFen);
+        },
+        function(err) {
+          const badge = document.getElementById("engine-status-badge");
+          badge.textContent = "🔴 Failed to initialize Prolog Solver";
+          console.error(err);
+        }
+      );
+    });
+
+    // Chessboard rendering engine (supporting perspective orientation flip)
+    function renderFen(fen, hPoints = {}, boardId = 'chessboard') {
+      const boardEl = document.getElementById(boardId);
+      if (!boardEl) return;
+      boardEl.innerHTML = '';
+      
+      const parts = fen.trim().split(/\s+/);
+      const rows = parts[0].split('/');
+      
+      const pieceSymbols = {
+        'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚',
+        'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔'
+      };
+
+      const pieceNames = {
+        'p': 'Black Pawn', 'n': 'Black Knight', 'b': 'Black Bishop', 'r': 'Black Rook', 'q': 'Black Queen', 'k': 'Black King',
+        'P': 'White Pawn', 'N': 'White Knight', 'B': 'White Bishop', 'R': 'White Rook', 'Q': 'White Queen', 'K': 'White King'
+      };
+
+      // 1. Parse the board layout into an 8x8 matrix
+      const grid = Array(8).fill(null).map(() => Array(8).fill(null));
+      for (let r = 0; r < 8; r++) {
+        const rowStr = rows[r];
+        let fileIdx = 0;
+        for (let c = 0; c < rowStr.length; c++) {
+          const char = rowStr[c];
+          if (/\d/.test(char)) {
+            const emptyCount = parseInt(char);
+            for (let e = 0; e < emptyCount; e++) {
+              fileIdx++;
+            }
+          } else {
+            grid[r][fileIdx] = char;
+            fileIdx++;
+          }
+        }
+      }
+
+      // 2. Loop files and ranks depending on board orientation
+      if (boardOrientation === 'white') {
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            createSquare(r, c, grid[r][c]);
+          }
+        }
+      } else {
+        // Black perspective: Ranks 1 to 8 (r from 7 down to 0), Files h to a (c from 7 down to 0)
+        for (let r = 7; r >= 0; r--) {
+          for (let c = 7; c >= 0; c--) {
+            createSquare(r, c, grid[r][c]);
+          }
+        }
+      }
+      
+      function createSquare(row, file, pieceChar) {
+        const sq = document.createElement('div');
+        const isDark = (row + file) % 2 === 1;
+        sq.className = `square ${isDark ? 'dark' : 'light'}`;
+        
+        // Compute coordinate algebraic square (file char + rank number)
+        const coord = String.fromCharCode(97 + file) + (8 - row);
+        sq.dataset.coord = coord;
+        
+        // Highlight positions
+        if (hPoints.check && hPoints.check.includes(coord)) {
+          sq.classList.add('highlight-check');
+        } else if (hPoints.attack && hPoints.attack.includes(coord)) {
+          sq.classList.add('highlight-attack');
+        } else if (hPoints.pin && hPoints.pin.includes(coord)) {
+          sq.classList.add('highlight-pin');
+        } else if (hPoints.preview && hPoints.preview.includes(coord)) {
+          sq.classList.add('highlight-preview');
+        }
+        
+        // Grid file/rank letters (properly flipped)
+        if (boardOrientation === 'white') {
+          if (file === 0) {
+            const label = document.createElement('span');
+            label.className = 'label-rank';
+            label.textContent = 8 - row;
+            sq.appendChild(label);
+          }
+          if (row === 7) {
+            const label = document.createElement('span');
+            label.className = 'label-file';
+            label.textContent = String.fromCharCode(97 + file);
+            sq.appendChild(label);
+          }
+        } else {
+          // Black perspective labels
+          if (file === 7) {
+            const label = document.createElement('span');
+            label.className = 'label-rank';
+            label.textContent = 8 - row;
+            sq.appendChild(label);
+          }
+          if (row === 0) {
+            const label = document.createElement('span');
+            label.className = 'label-file';
+            label.textContent = String.fromCharCode(97 + file);
+            sq.appendChild(label);
+          }
+        }
+        
+        if (pieceChar) {
+          const piece = document.createElement('span');
+          piece.className = 'piece';
+          piece.textContent = pieceSymbols[pieceChar];
+          piece.title = pieceNames[pieceChar];
+          piece.classList.add(pieceChar === pieceChar.toUpperCase() ? 'white-piece' : 'black-piece');
+          sq.appendChild(piece);
+          sq.classList.add('has-piece');
+        }
+        
+        boardEl.appendChild(sq);
+      }
+    }
+
+    // Toggle board perspective
+    function flipBoard() {
+      boardOrientation = boardOrientation === 'white' ? 'black' : 'white';
+      updateAnalysisUI();
+    }
+
+    // Load Demo PGN
+    function loadDemo(key) {
+      document.getElementById("pgn-input").value = DEMO_PGNS[key] || "";
+      loadPgnText();
+    }
+
+    // PGN Parser using chess.js
+    function loadPgnText() {
+      const pgn = document.getElementById("pgn-input").value.trim();
+      if (!pgn) {
+        alert("Please paste a PGN string first.");
+        return;
+      }
+      
+      // Stop autoplay if running
+      if (playInterval) togglePlay();
+      
+      const chess = new Chess();
+      if (!chess.load_pgn(pgn)) {
+        alert("Invalid PGN text. Please check the structure and try again.");
+        return;
+      }
+      
+      // Parse move history
+      const history = chess.history({ verbose: true });
+      
+      // Re-run the game from starting position to capture each FEN
+      const tracker = new Chess();
+      movesList = [];
+      
+      // Add starting position
+      movesList.push({
+        num: 0,
+        san: "Start",
+        fen: tracker.fen(),
+        activeColor: "White"
+      });
+      
+      history.forEach((m, index) => {
+        tracker.move(m);
+        movesList.push({
+          num: index + 1,
+          san: m.san,
+          color: m.color === 'w' ? 'White' : 'Black',
+          fen: tracker.fen()
+        });
+      });
+      
+      buildMovesIndexUI();
+      goToMove(0);
+    }
+
+    // Render PGN Moves List in UI
+    function buildMovesIndexUI() {
+      const listEl = document.getElementById("move-list");
+      listEl.innerHTML = "";
+      
+      // Starting Position
+      const startSpan = document.createElement("span");
+      startSpan.className = "move-span active";
+      startSpan.id = "move-idx-0";
+      startSpan.textContent = "Start";
+      startSpan.onclick = () => goToMove(0);
+      listEl.appendChild(startSpan);
+      
+      // Build pairs of moves
+      for (let i = 1; i < movesList.length; i += 2) {
+        const pairDiv = document.createElement("div");
+        pairDiv.className = "move-pair";
+        
+        const numLabel = document.createElement("span");
+        numLabel.className = "move-num";
+        numLabel.textContent = `${Math.ceil(i / 2)}.`;
+        pairDiv.appendChild(numLabel);
+        
+        // White move
+        const m1 = movesList[i];
+        const span1 = document.createElement("span");
+        span1.className = "move-span";
+        span1.id = `move-idx-${i}`;
+        span1.textContent = m1.san;
+        span1.onclick = () => goToMove(i);
+        pairDiv.appendChild(span1);
+        
+        // Black move (might not exist if game ended on White's turn)
+        if (i + 1 < movesList.length) {
+          const m2 = movesList[i + 1];
+          const span2 = document.createElement("span");
+          span2.className = "move-span";
+          span2.id = `move-idx-${i + 1}`;
+          span2.textContent = m2.san;
+          span2.onclick = () => goToMove(i + 1);
+          pairDiv.appendChild(span2);
+        }
+        
+        listEl.appendChild(pairDiv);
+      }
+      
+      // Enable navigation/flip buttons
+      document.getElementById("btn-start").disabled = false;
+      document.getElementById("btn-prev").disabled = false;
+      document.getElementById("btn-play").disabled = false;
+      document.getElementById("btn-next").disabled = false;
+      document.getElementById("btn-end").disabled = false;
+      document.getElementById("btn-flip").disabled = false;
+    }
+
+    // Navigate to Move Index
+    function goToMove(index) {
+      if (index < 0 || index >= movesList.length) return;
+      
+      currentMoveIndex = index;
+      
+      // Highlight current move in the moves panel
+      document.querySelectorAll(".move-span").forEach(el => el.classList.remove("active"));
+      const activeEl = document.getElementById(`move-idx-${index}`);
+      if (activeEl) {
+        activeEl.classList.add("active");
+        activeEl.scrollIntoView({ block: "nearest" });
+      }
+      
+      const current = movesList[index];
+      analyzeCurrentFen(current.fen);
+      
+      // Disable/enable buttons based on boundary index
+      document.getElementById("btn-start").disabled = (index === 0);
+      document.getElementById("btn-prev").disabled = (index === 0);
+      document.getElementById("btn-next").disabled = (index === movesList.length - 1);
+      document.getElementById("btn-end").disabled = (index === movesList.length - 1);
+    }
+
+    function prevMove() {
+      if (currentMoveIndex > 0) goToMove(currentMoveIndex - 1);
+    }
+
+    function nextMove() {
+      if (currentMoveIndex < movesList.length - 1) {
+        goToMove(currentMoveIndex + 1);
+      } else if (playInterval) {
+        togglePlay(); // Stop playing if reached the end
+      }
+    }
+
+    // Autoplay Controls
+    function togglePlay() {
+      const btn = document.getElementById("btn-play");
+      if (playInterval) {
+        clearInterval(playInterval);
+        playInterval = null;
+        btn.textContent = "Play";
+        btn.style.background = "rgba(88, 166, 255, 0.1)";
+        btn.style.color = "var(--accent)";
+      } else {
+        btn.textContent = "Pause";
+        btn.style.background = "rgba(248, 81, 73, 0.1)";
+        btn.style.color = "var(--red)";
+        
+        // If at the end of the game, loop back to the start
+        if (currentMoveIndex === movesList.length - 1) {
+          goToMove(0);
+        }
+        
+        playInterval = setInterval(() => {
+          nextMove();
+        }, autoplayDelay);
+      }
+    }
+
+    function updatePlaySpeed() {
+      const slider = document.getElementById("autoplay-speed");
+      autoplayDelay = parseInt(slider.value, 10);
+      document.getElementById("speed-val").textContent = `${(autoplayDelay / 1000).toFixed(1)}s`;
+      
+      // Restart interval if currently playing
+      if (playInterval) {
+        clearInterval(playInterval);
+        playInterval = setInterval(() => {
+          nextMove();
+        }, autoplayDelay);
+      }
+    }
+
+    // Swap FEN turn active color
+    function getSwappedTurnFen(fen) {
+      const parts = fen.trim().split(/\s+/);
+      if (parts.length < 2) return fen;
+      const currentTurn = parts[1];
+      parts[1] = currentTurn === "w" ? "b" : "w";
+      return parts.join(" ");
+    }
+
+    // Call Prolog Engine sequentially for White turn and Black turn only (fast analysis)
+    function analyzeCurrentFen(fen) {
+      if (!engineReady) return;
+      
+      const parts = fen.trim().split(/\s+/);
+      const activeColorChar = parts[1] || 'w';
+      
+      const fenWhite = activeColorChar === 'w' ? fen : getSwappedTurnFen(fen);
+      const fenBlack = activeColorChar === 'b' ? fen : getSwappedTurnFen(fen);
+      
+      // Cancel any active moves analysis solving (if move changes mid-solve)
+      analyzingMoves = false;
+      if (funnyLoadingInterval) {
+        clearInterval(funnyLoadingInterval);
+        funnyLoadingInterval = null;
+      }
+      
+      // Query White FEN first
+      jsGetTacticalSummary(fenWhite, function(summaryWhite, err1) {
+        if (err1) {
+          console.error("Error analyzing White turn FEN:", err1);
+          document.getElementById("raw-json-pre").textContent = "Error running analysis: " + err1;
+          return;
+        }
+        
+        // Query Black FEN second (ensures sequential execution to prevent state machine collisions)
+        jsGetTacticalSummary(fenBlack, function(summaryBlack, err2) {
+          if (err2) {
+            console.error("Error analyzing Black turn FEN:", err2);
+            document.getElementById("raw-json-pre").textContent = "Error running analysis: " + err2;
+            return;
+          }
+          
+          // Cache results and update the UI
+          currentSummaryWhite = summaryWhite;
+          currentSummaryBlack = summaryBlack;
+          currentAnalysisFen = fen;
+          previewedMoveUci = null; // Reset preview highlight on new FEN
+          
+          updateAnalysisUI();
+          
+          // Check if user is currently looking at the Top Moves tab.
+          // If so, trigger the deep analysis immediately (lazy loading on move change).
+          const activeTab = document.querySelector('.tab-btn.active');
+          if (activeTab && activeTab.id === 'tab-complex') {
+            triggerMovesAnalysis();
+          }
+        });
+      });
+    }
+
+    // Refresh UI indicators and highlights
+    function updateAnalysisUI() {
+      if (!currentAnalysisFen) return;
+      
+      const parts = currentAnalysisFen.split(" ");
+      const activeColorChar = parts[1] || 'w';
+      
+      // Draw board using current highlights based on turn color
+      const activeSummary = activeColorChar === 'w' ? currentSummaryWhite : currentSummaryBlack;
+      const highlights = getHighlightsFromSummary(activeSummary, currentAnalysisFen);
+      
+      // Inject preview move if active
+      if (previewedMoveUci) {
+        const from = previewedMoveUci.substring(0, 2);
+        const to = previewedMoveUci.substring(2, 4);
+        highlights.preview = [from, to];
+      } else {
+        highlights.preview = [];
+      }
+      
+      renderFen(currentAnalysisFen, highlights, 'chessboard');
+      
+      // Output 1: Structured JSON (showing current active turn color payload)
+      document.getElementById("raw-json-pre").textContent = JSON.stringify(activeSummary, null, 2);
+      
+      // Show PGN Analysis subtabs UI
+      document.getElementById("readable-subtabs").style.display = "flex";
+      document.getElementById("btn-copy-readable").style.display = "block";
+      
+      // Output 2: Human-Readable translations
+      renderReadableSummary(currentSummaryWhite, currentSummaryBlack, currentAnalysisFen);
+      
+      // Output 3: Top Moves Analysis Table
+      updateMovesAnalysisUI();
+    }
+
+    // Convert UCI string to Standard Algebraic Notation (SAN)
+    function convertUciToSan(fen, uci) {
+      try {
+        const chess = new Chess(fen);
+        const from = uci.substring(0, 2);
+        const to = uci.substring(2, 4);
+        const promo = uci.length > 4 ? uci[4] : undefined;
+        
+        const moveObj = chess.move({
+          from: from,
+          to: to,
+          promotion: promo
+        });
+        
+        return moveObj ? moveObj.san : uci;
+      } catch (e) {
+        return uci;
+      }
+    }
+
+    // Render the moves table inside the Top Moves Analysis tab
+    function updateMovesAnalysisUI() {
+      if (analyzingMoves) return; // Keep loading screen
+      
+      const tbody = document.getElementById("moves-analysis-tbody");
+      if (!tbody) return;
+      
+      if (currentAnalysisFen && movesAnalysisCache[currentAnalysisFen] && (!currentMovesAnalysis || currentMovesAnalysis.length === 0)) {
+        currentMovesAnalysis = movesAnalysisCache[currentAnalysisFen];
+      }
+      
+      if (!currentMovesAnalysis || currentMovesAnalysis.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4" style="padding: 3rem; text-align: center;">
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;">
+                <span style="color: var(--text-muted); font-style: italic;">Top moves analysis not run for this position.</span>
+                <button class="btn-primary" onclick="triggerMovesAnalysis()" style="font-size: 0.9rem; padding: 0.5rem 1rem;">⚡ Run Tactical Solver</button>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      // Sort moves by score descending, then by UCI alphabetically
+      const sortedMoves = [...currentMovesAnalysis].sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.uci.localeCompare(b.uci);
+      });
+      
+      // Filter based on select limit
+      const limitVal = document.getElementById("moves-limit").value;
+      const limit = limitVal === "all" ? sortedMoves.length : parseInt(limitVal, 10);
+      const displayedMoves = sortedMoves.slice(0, limit);
+      
+      tbody.innerHTML = "";
+      displayedMoves.forEach((m, idx) => {
+        const rank = idx + 1;
+        const san = convertUciToSan(currentAnalysisFen, m.uci);
+        
+        const tr = document.createElement("tr");
+        tr.className = "analysis-row";
+        if (previewedMoveUci === m.uci) {
+          tr.classList.add("previewing");
+        }
+        tr.onclick = () => selectPreviewMove(m.uci);
+        
+        // Format classifications into badges
+        const badgesHtml = m.classifications.map(c => {
+          let badgeClass = "neutral";
+          let label = c;
+          if (c === "checkmate") { badgeClass = "danger"; label = "🏆 Checkmate"; }
+          else if (c === "capture") { badgeClass = "warning"; label = "⚔️ Capture"; }
+          else if (c === "promotion") { badgeClass = "info"; label = "♜ Promotion"; }
+          else if (c === "fork") { badgeClass = "danger"; label = "🍴 Fork"; }
+          else if (c === "discovered_attack") { badgeClass = "info"; label = "⚡ Discovery"; }
+          else if (c === "check") { badgeClass = "warning"; label = "⚠️ Check"; }
+          else if (c === "castling") { badgeClass = "success"; label = "👑 Castling"; }
+          else if (c === "development") { badgeClass = "success"; label = "🐴 Development"; }
+          else if (c === "positional") { badgeClass = "neutral"; label = "🛡️ Positional"; }
+          else if (c === "unsafe") { badgeClass = "danger"; label = "⚠️ Unsafe"; }
+          else if (c === "sacrifice") { badgeClass = "purple"; label = "🔥 Sacrifice"; }
+          else if (c === "mate_in_two") { badgeClass = "purple"; label = "🧩 Mate in 2"; }
+          else if (c === "mate_in_three") { badgeClass = "purple"; label = "🧩 Mate in 3"; }
+          else if (c === "forced_material_win") { badgeClass = "purple"; label = "💎 Forced Gain"; }
+          
+          return `<span class="badge ${badgeClass}">${label}</span>`;
+        }).join(" ");
+        
+        tr.innerHTML = `
+          <td style="padding: 0.75rem 0.5rem; color: var(--text-muted); font-weight: 600;">#${rank}</td>
+          <td style="padding: 0.75rem 0.5rem; font-family: var(--font-mono); font-weight: 700; color: var(--accent);">${san}</td>
+          <td style="padding: 0.75rem 0.5rem;"><div class="badge-container">${badgesHtml}</div></td>
+          <td style="padding: 0.75rem 0.5rem; text-align: right; font-weight: 700; color: var(--text-highlight);">${m.score}</td>
+        `;
+        
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Highlight a move trajectory on row selection
+    function selectPreviewMove(uci) {
+      if (previewedMoveUci === uci) {
+        previewedMoveUci = null; // Toggle preview off
+      } else {
+        previewedMoveUci = uci;
+      }
+      
+      // Update FEN board representation and UI class preview highlights
+      const activeColorChar = currentAnalysisFen.split(" ")[1] || 'w';
+      const activeSummary = activeColorChar === 'w' ? currentSummaryWhite : currentSummaryBlack;
+      const highlights = getHighlightsFromSummary(activeSummary, currentAnalysisFen);
+      
+      if (previewedMoveUci) {
+        const from = previewedMoveUci.substring(0, 2);
+        const to = previewedMoveUci.substring(2, 4);
+        highlights.preview = [from, to];
+      } else {
+        highlights.preview = [];
+      }
+      
+      renderFen(currentAnalysisFen, highlights, 'chessboard');
+      
+      // Re-render moves table to toggle active preview CSS row backgrounds
+      updateMovesAnalysisUI();
+    }
+
+    // Trigger moves analysis solving asynchronously
+    function triggerMovesAnalysis() {
+      if (!currentAnalysisFen || !engineReady) return;
+      
+      // 1. If already cached, load it instantly
+      if (movesAnalysisCache[currentAnalysisFen]) {
+        currentMovesAnalysis = movesAnalysisCache[currentAnalysisFen];
+        updateMovesAnalysisUI();
+        return;
+      }
+      
+      // 2. If already solving, do not trigger a new query
+      if (analyzingMoves) return;
+      
+      analyzingMoves = true;
+      showFunnyLoadingScreen();
+      
+      jsGetMovesAnalysis(currentAnalysisFen, function(movesAnalysis, err) {
+        // Discard result if FEN changed mid-analysis
+        if (!analyzingMoves) return;
+        
+        analyzingMoves = false;
+        if (funnyLoadingInterval) {
+          clearInterval(funnyLoadingInterval);
+          funnyLoadingInterval = null;
+        }
+        
+        if (err) {
+          console.error("Error analyzing moves:", err);
+          const tbody = document.getElementById("moves-analysis-tbody");
+          if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="4" style="padding: 2rem; text-align: center; color: var(--red); font-style: italic;">Error running moves analysis: ${err}</td></tr>`;
+          }
+          return;
+        }
+        
+        // Cache and render
+        movesAnalysisCache[currentAnalysisFen] = movesAnalysis || [];
+        currentMovesAnalysis = movesAnalysisCache[currentAnalysisFen];
+        updateMovesAnalysisUI();
+      });
+    }
+
+    // Display funny loading animations on Tab 3
+    function showFunnyLoadingScreen() {
+      const tbody = document.getElementById("moves-analysis-tbody");
+      if (!tbody) return;
+      
+      const funnyMessages = [
+        "Polishing the crowns...",
+        "Bribing the opponent's pawns...",
+        "Simulating bishop diagonal retreats...",
+        "Checking if the rooks are awake...",
+        "Advising the King to stay calm...",
+        "Consulting the symbolic Prolog referee...",
+        "Dusting the chess board files...",
+        "Feeding the knights their carrots...",
+        "Evaluating dynamic piece vectors...",
+        "Calculating checkmate graphs in Prolog..."
+      ];
+      
+      let msgIdx = 0;
+      
+      // Initial render
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" style="padding: 3.5rem; text-align: center; vertical-align: middle;">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;">
+              <div style="width: 40px; height: 40px; border-radius: 50%; border: 3px solid rgba(88, 166, 255, 0.1); border-top-color: var(--accent); animation: spin 0.8s infinite linear;"></div>
+              <div id="funny-loading-text" style="font-size: 0.95rem; color: var(--text-muted); font-style: italic; font-weight: 500; min-height: 1.5rem; transition: opacity 0.2s ease;">
+                ${funnyMessages[0]}
+              </div>
+            </div>
+          </td>
+        </tr>
+      `;
+      
+      // Rotate messages
+      funnyLoadingInterval = setInterval(() => {
+        msgIdx = (msgIdx + 1) % funnyMessages.length;
+        const textEl = document.getElementById("funny-loading-text");
+        if (textEl) {
+          textEl.style.opacity = 0;
+          setTimeout(() => {
+            textEl.textContent = funnyMessages[msgIdx];
+            textEl.style.opacity = 1;
+          }, 200);
+        }
+      }, 950);
+    }
+
+    // Helper to get highlighting details
+    function getHighlightsFromSummary(summary, fen) {
+      const highlights = {
+        check: [],
+        pin: summary.pinned_pieces.map(p => p.square),
+        attack: []
+      };
+      
+      const parts = fen.split(" ");
+      const boardPart = parts[0];
+      const turn = parts[1] || "w";
+      const kingChar = turn === "w" ? "K" : "k";
+      
+      if (summary.in_check) {
+        const ranks = boardPart.split("/");
+        for (let r = 0; r < 8; r++) {
+          let fileIdx = 0;
+          for (let c = 0; c < ranks[r].length; c++) {
+            const char = ranks[r][c];
+            if (/\d/.test(char)) {
+              fileIdx += parseInt(char, 10);
+            } else {
+              if (char === kingChar) {
+                const coord = String.fromCharCode(97 + fileIdx) + (8 - r);
+                highlights.check.push(coord);
+                break;
+              }
+              fileIdx++;
+            }
+          }
+        }
+      }
+      
+      summary.discovered_attacks.forEach(da => {
+        if (da.blocker) highlights.attack.push(da.blocker);
+        if (da.attacker) highlights.attack.push(da.attacker);
+      });
+      
+      return highlights;
+    }
+
+    // Translator from structured JSON to plain English (Flipped by Board Perspective)
+    function renderReadableSummary(summaryWhite, summaryBlack, fen) {
+      const listWeEl = document.getElementById("readable-list-we");
+      const listEnemyEl = document.getElementById("readable-list-enemy");
+      const bannerEl = document.getElementById("game-status-banner");
+      const bannerTextEl = document.getElementById("game-status-text");
+      
+      listWeEl.innerHTML = "";
+      listEnemyEl.innerHTML = "";
+      
+      const parts = fen.split(" ");
+      const activeColor = parts[1] === "w" ? "White" : "Black";
+      const activeSummary = activeColor === "White" ? summaryWhite : summaryBlack;
+      
+      // 1. Render global game status banner
+      bannerEl.style.display = "flex";
+      if (activeSummary.game_status && activeSummary.game_status.status !== "active") {
+        const status = activeSummary.game_status.status;
+        const winner = activeSummary.game_status.winner;
+        if (status === "checkmate") {
+          bannerEl.className = "readable-item danger";
+          bannerTextEl.innerHTML = `🏆 <strong>CHECKMATE!</strong> The game has ended. <strong>${winner.toUpperCase()}</strong> has won.`;
+        } else if (status === "stalemate") {
+          bannerEl.className = "readable-item warning";
+          bannerTextEl.innerHTML = `🤝 <strong>STALEMATE!</strong> The game has ended in a draw (no legal moves available).`;
+        }
+      } else if (activeSummary.in_check) {
+        bannerEl.className = "readable-item danger";
+        const checkers = activeSummary.checking_pieces.map(p => `${p.piece.toUpperCase()} on ${p.square}`).join(", ");
+        bannerTextEl.innerHTML = `⚠️ <strong>CHECK!</strong> The active player (<strong>${activeColor}</strong>) is under check by: <strong>[${checkers}]</strong>.`;
+      } else {
+        bannerEl.className = "readable-item success";
+        bannerTextEl.innerHTML = `🎮 Game is active. Active Turn Color: <strong>${activeColor}</strong>.`;
+      }
+      
+      // 2. Material value evaluation
+      if (activeSummary.material_values) {
+        const wVal = activeSummary.material_values.white;
+        const bVal = activeSummary.material_values.black;
+        const advantage = activeSummary.advantage;
+        let matText = `Material Status: White (<strong>${wVal}</strong>) vs Black (<strong>${bVal}</strong>). `;
+        if (advantage.color === "none") {
+          matText += "Material balance is even.";
+        } else {
+          matText += `<strong>${advantage.color.toUpperCase()}</strong> has a material advantage of <strong>+${advantage.margin}</strong>.`;
+        }
+        
+        // Add material balance item to both subtabs as neutral info
+        const liWeMat = createReadableItem("⚖️", matText, "info");
+        const liEnemyMat = createReadableItem("⚖️", matText, "info");
+        listWeEl.appendChild(liWeMat);
+        listEnemyEl.appendChild(liEnemyMat);
+      }
+      
+      // 3. Map "We" and "Enemy" based on selected board orientation
+      const weColor = boardOrientation;
+      const enemyColor = weColor === 'white' ? 'black' : 'white';
+      
+      const weSummary = boardOrientation === 'white' ? summaryWhite : summaryBlack;
+      const enemySummary = boardOrientation === 'white' ? summaryBlack : summaryWhite;
+      
+      // --- ATTACKS WE HAVE (Delivered by We Color against Enemy Color) ---
+      const weAttacks = [];
+      
+      // Checks we deliver
+      if (enemySummary.in_check) {
+        const checkers = enemySummary.checking_pieces.map(p => `${p.piece.toUpperCase()} on ${p.square}`).join(", ");
+        weAttacks.push({
+          type: "danger",
+          icon: "⚠️",
+          text: `<strong>King Under Threat:</strong> We are checking the opponent King with: <strong>${checkers}</strong>.`
+        });
+      }
+      
+      // Pins we enforce
+      if (enemySummary.pinned_pieces && enemySummary.pinned_pieces.length > 0) {
+        enemySummary.pinned_pieces.forEach(p => {
+          weAttacks.push({
+            type: "warning",
+            icon: "📌",
+            text: `<strong>Enforced Pin:</strong> The opponent's <strong>${p.piece}</strong> on <strong>${p.square}</strong> is pinned to their King by our forces. It cannot move.`
+          });
+        });
+      }
+      
+      // Opponent pieces we threaten
+      if (enemySummary.threatened_pieces && enemySummary.threatened_pieces.length > 0) {
+        enemySummary.threatened_pieces.forEach(p => {
+          const isDefended = enemySummary.defended_pieces.some(d => d.square === p.square);
+          const defenseText = isDefended ? "defended by friendly support" : "completely <strong>hanging / undefended</strong>";
+          weAttacks.push({
+            type: isDefended ? "neutral" : "warning",
+            icon: "🔥",
+            text: `<strong>Target Attacked:</strong> We are attacking their <strong>${p.piece}</strong> on <strong>${p.square}</strong> (${defenseText}).`
+          });
+        });
+      }
+      
+      // Discovered attacks we setup
+      if (weSummary.discovered_attacks && weSummary.discovered_attacks.length > 0) {
+        weSummary.discovered_attacks.forEach(da => {
+          weAttacks.push({
+            type: "info",
+            icon: "⚡",
+            text: `<strong>Discovered Attack Setup:</strong> If our blocker on <strong>${da.blocker}</strong> moves, our attacker on <strong>${da.attacker}</strong> will discover an attack on their <strong>${da.target}</strong>.`
+          });
+        });
+      }
+      
+      // Forks we deliver
+      if (enemySummary.forks && enemySummary.forks.existing && enemySummary.forks.existing.length > 0) {
+        enemySummary.forks.existing.forEach(f => {
+          const targets = f.targets.join(" and ");
+          weAttacks.push({
+            type: "danger",
+            icon: "🍴",
+            text: `<strong>Active Fork:</strong> Our piece on <strong>${f.attacker}</strong> forks their <strong>${targets}</strong>. Tactical trade status: <strong>${f.status}</strong>.`
+          });
+        });
+      }
+      
+      // Render We Attacks
+      if (weAttacks.length === 0) {
+        listWeEl.appendChild(createReadableItem("🛡️", "We have no active relative pins, forks, checks, or hanging threats targeting the opponent in this position.", "success"));
+      } else {
+        weAttacks.forEach(item => {
+          listWeEl.appendChild(createReadableItem(item.icon, item.text, item.type));
+        });
+      }
+      
+      // --- ATTACKS ENEMY HAS (Delivered by Enemy Color against We Color) ---
+      const enemyAttacks = [];
+      
+      // Checks enemy delivers
+      if (weSummary.in_check) {
+        const checkers = weSummary.checking_pieces.map(p => `${p.piece.toUpperCase()} on ${p.square}`).join(", ");
+        enemyAttacks.push({
+          type: "danger",
+          icon: "🚨",
+          text: `<strong>King Under Check!</strong> Our King is currently checked by opponent piece: <strong>${checkers}</strong>.`
+        });
+      }
+      
+      // Pins they enforce on us
+      if (weSummary.pinned_pieces && weSummary.pinned_pieces.length > 0) {
+        weSummary.pinned_pieces.forEach(p => {
+          enemyAttacks.push({
+            type: "warning",
+            icon: "📌",
+            text: `<strong>Our Piece Pinned:</strong> Our <strong>${p.piece}</strong> on <strong>${p.square}</strong> is pinned to our King by their forces. Moving it is illegal.`
+          });
+        });
+      }
+      
+      // Our pieces threatened by them
+      if (weSummary.threatened_pieces && weSummary.threatened_pieces.length > 0) {
+        weSummary.threatened_pieces.forEach(p => {
+          const isDefended = weSummary.defended_pieces.some(d => d.square === p.square);
+          const defenseText = isDefended ? "defended by friendly support" : "completely <strong>hanging / undefended</strong>";
+          enemyAttacks.push({
+            type: isDefended ? "neutral" : "warning",
+            icon: "🔥",
+            text: `<strong>Piece Threatened:</strong> Our <strong>${p.piece}</strong> on <strong>${p.square}</strong> is attacked by them (${defenseText}).`
+          });
+        });
+      }
+      
+      // Discovered attacks they setup on us
+      if (enemySummary.discovered_attacks && enemySummary.discovered_attacks.length > 0) {
+        enemySummary.discovered_attacks.forEach(da => {
+          enemyAttacks.push({
+            type: "info",
+            icon: "⚡",
+            text: `<strong>Discovered Attack Threat:</strong> If they move their blocker on <strong>${da.blocker}</strong>, their attacker on <strong>${da.attacker}</strong> will discover an attack on our <strong>${da.target}</strong>.`
+          });
+        });
+      }
+      
+      // Forks they deliver on us
+      if (weSummary.forks && weSummary.forks.existing && weSummary.forks.existing.length > 0) {
+        weSummary.forks.existing.forEach(f => {
+          const targets = f.targets.join(" and ");
+          enemyAttacks.push({
+            type: "danger",
+            icon: "🍴",
+            text: `<strong>Opponent Fork:</strong> Opponent piece on <strong>${f.attacker}</strong> forks our <strong>${targets}</strong>. Tactical trade status: <strong>${f.status}</strong>.`
+          });
+        });
+      }
+      
+      // Render Enemy Attacks
+      if (enemyAttacks.length === 0) {
+        listEnemyEl.appendChild(createReadableItem("🛡️", "The opponent has no active relative pins, forks, checks, or hanging threats targeting our pieces in this position.", "success"));
+      } else {
+        enemyAttacks.forEach(item => {
+          listEnemyEl.appendChild(createReadableItem(item.icon, item.text, item.type));
+        });
+      }
+    }
+
+    // Helper to create list items
+    function createReadableItem(icon, text, type) {
+      const li = document.createElement("li");
+      li.className = `readable-item ${type}`;
+      
+      const iconSpan = document.createElement("span");
+      iconSpan.className = "readable-icon";
+      iconSpan.textContent = icon;
+      
+      const textSpan = document.createElement("span");
+      textSpan.className = "readable-text";
+      textSpan.innerHTML = text;
+      
+      li.appendChild(iconSpan);
+      li.appendChild(textSpan);
+      return li;
+    }
+
+    // Utilities: tab switcher
+    function switchTab(evt, tabId) {
+      const container = evt.currentTarget.closest('.code-tabs');
+      container.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-selected', 'false');
+      });
+      container.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      evt.currentTarget.classList.add('active');
+      evt.currentTarget.setAttribute('aria-selected', 'true');
+      container.querySelector('#' + tabId).classList.add('active');
+      
+      // Trigger moves analysis lazily if Top Moves tab is selected
+      if (tabId === 'panel-complex') {
+        triggerMovesAnalysis();
+      }
+    }
+
+    // Subtab switcher
+    function switchSubTab(evt, subtabId) {
+      const container = evt.currentTarget.closest('.tab-content');
+      container.querySelectorAll('.subtab-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      container.querySelectorAll('.subtab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      evt.currentTarget.classList.add('active');
+      container.querySelector('#' + subtabId).classList.add('active');
+    }
+
+    function copyCode(preId) {
+      const text = document.getElementById(preId).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector(`#${preId}`).previousElementSibling;
+        const originalText = btn.textContent;
+        btn.textContent = "Copied!";
+        btn.style.color = "var(--cyan)";
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.color = "var(--text-muted)";
+        }, 1500);
+      });
+    }
+
+    function copyActiveSubTab() {
+      const activeContent = document.querySelector('.subtab-content.active');
+      if (activeContent) {
+        const listContainer = activeContent.querySelector('.readable-list');
+        if (listContainer) {
+          copyText(listContainer.id);
+        }
+      }
+    }
+
+    function copyText(containerId) {
+      const container = document.getElementById(containerId);
+      const lines = [];
+      container.querySelectorAll('.readable-item').forEach(item => {
+        const icon = item.querySelector('.readable-icon').textContent;
+        const text = item.querySelector('.readable-text').textContent;
+        lines.push(`${icon} ${text}`);
+      });
+      const plainText = lines.join("\n");
+      
+      navigator.clipboard.writeText(plainText).then(() => {
+        // Find copy button sibling
+        const btn = document.getElementById("btn-copy-readable");
+        const originalText = btn.textContent;
+        btn.textContent = "Copied!";
+        btn.style.color = "var(--cyan)";
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.color = "var(--text-muted)";
+        }, 1500);
+      });
+    }
+  </script>
+</body>
+</html>

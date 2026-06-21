@@ -525,6 +525,57 @@ function jsGetTacticalSummary(fen, callback) {
         }
     });
 }
+
+function jsGetMovesAnalysis(fen, callback) {
+    const parsed = parseFenToPrologVars(fen);
+    if (!parsed) {
+        callback([], "Invalid FEN");
+        return;
+    }
+    
+    const queryStr = `classify_move(${parsed.term}, FromX-FromY, ToX-ToY, Promo, Classifications, Score).`;
+    const fileMapInv = {1: 'a', 2: 'b', 3: 'c', 4: 'd', 5: 'e', 6: 'f', 7: 'g', 8: 'h'};
+    
+    queryPrologAll(queryStr, function(answers, err) {
+        if (err) {
+            callback([], err);
+            return;
+        }
+        
+        const moves = [];
+        answers.forEach(ans => {
+            const fx = termToJs(ans.lookup("FromX"));
+            const fy = termToJs(ans.lookup("FromY"));
+            const tx = termToJs(ans.lookup("ToX"));
+            const ty = termToJs(ans.lookup("ToY"));
+            const promoVal = termToJs(ans.lookup("Promo"));
+            const classifications = termToJs(ans.lookup("Classifications")) || [];
+            const score = Number(termToJs(ans.lookup("Score")) || 0);
+            
+            if (fx && fy && tx && ty) {
+                let suffix = "";
+                if (promoVal !== "none") {
+                    if (promoVal === "knight") suffix = "n";
+                    else if (promoVal === "queen") suffix = "q";
+                    else if (promoVal === "rook") suffix = "r";
+                    else if (promoVal === "bishop") suffix = "b";
+                }
+                const uci = `${fileMapInv[fx]}${fy}${fileMapInv[tx]}${ty}${suffix}`;
+                
+                moves.push({
+                    uci: uci,
+                    from: `${fileMapInv[fx]}${fy}`,
+                    to: `${fileMapInv[tx]}${ty}`,
+                    promo: promoVal === "none" ? null : promoVal,
+                    classifications: classifications,
+                    score: score
+                });
+            }
+        });
+        
+        callback(moves, null);
+    });
+}
 """.replace("{{RULES}}", escaped_prolog)
 
     with open(output_js_path, "w", encoding="utf-8") as f:
